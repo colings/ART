@@ -1,7 +1,7 @@
 #00 Hungary - Hungarian
 #01 Developers should add translations to this file and then run the 'generateTranslationDiffs' Bash script to update other locales.
 #02 Translators please append a comment here with the current date and your name(s) as used in the RawTherapee/ART forum or Bitbucket page, e.g.:
-#03 2025-11-11 Bereczky Péter
+#03 2025-11-16 Bereczky Péter
 # ART version: 1.25.11
 ABOUT_TAB_BUILD;Verzió
 ABOUT_TAB_CREDITS;Szerzők
@@ -605,6 +605,7 @@ HISTORY_MSG_GRAIN_STRENGTH;Filmszemcse - Erősség
 HISTORY_MSG_GRAIN_SCALE;Filmszemcse - méret
 HISTORY_MSG_HISTMATCHING;Automatikusan illeszkedő tónusgörbe
 HISTORY_MSG_HSL_SMOOTHING;Színkiegyenlítő - Simítás
+HISTORY_MSG_ICM_DCP_LOOK_PIPELINE_POS;Bemeneti profil - DCP look (nézetmódosító) alkalmazása
 HISTORY_MSG_ICM_INPUT_CAT;Bemeneti profil - CAT
 HISTORY_MSG_ICM_OUTPUT_PRIMARIES;Kimeneti - Elsődlegesek
 HISTORY_MSG_ICM_OUTPUT_TEMP;Kimeneti - ICC-v4 illuminant D
@@ -1589,6 +1590,10 @@ TP_ICM_APPLYHUESATMAP_TOOLTIP;Használja a beágyazott DCP-alaptáblázatot (Hue
 TP_ICM_APPLYLOOKTABLE;"Look" táblázat
 TP_ICM_APPLYLOOKTABLE_TOOLTIP;Használja a beágyazott DCP kinézet táblázatot. A beállítás csak akkor érhető el, ha a kiválasztott DCP rendelkezik ilyennel.
 TP_ICM_BPC;Feketepont-kompenzáció
+TP_ICM_DCP_LOOK_PIPELINE_POS;"Look" (nézetmódosító) alkalmazása
+TP_ICM_DCP_LOOK_PIPELINE_POS_EARLY;A csővezeték elején
+TP_ICM_DCP_LOOK_PIPELINE_POS_LATE;Később a csővezetékben
+TP_ICM_DCP_LOOK_PIPELINE_POS_TOOLTIP;Szabályozza, hogy mikor kell alkalmazni a DCP-profil "look" (nézet) módosítóit (look táblázat, kiindulási expozíció és tónusgörbe) a feldolgozási folyamatban. A megjelenés korábbi alkalmazása (a szín-/tónuskorrekció előtt) jobban megfelel az eredeti Adobe DNG-specifikációknak, de olyan vágott kiemeléseket eredményezhet, amelyeket a helyi szerkesztőeszközök nem tudnak visszaállítani.
 TP_ICM_DCPILLUMINANT;Fényforrás
 TP_ICM_DCPILLUMINANT_INTERPOLATED;Interpolált
 TP_ICM_DCPILLUMINANT_TOOLTIP;Válassza ki, melyik beágyazott DCP fényforrást használja. Az alapértelmezett az "interpolált", ami a kettő keveréke a fehéregyensúly alapján. A beállítás csak akkor érhető el, ha egy interpoláció-támogatással rendelkező, kettős megvilágítású DCP van kiválasztva.
