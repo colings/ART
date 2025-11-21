@@ -788,7 +788,7 @@ int ImageIO::loadTIFF(const Glib::ustring &fname)
         TIFFSetField(in, TIFFTAG_SGILOGDATAFMT, SGILOGDATAFMT_FLOAT);
     }
 
-     /*
+    /*
      * We could use the min/max values set in TIFFTAG_SMINSAMPLEVALUE and
      * TIFFTAG_SMAXSAMPLEVALUE, but for now, we normalize the image to the
      * effective minimum and maximum values
