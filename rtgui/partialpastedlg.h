@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- *  
+ *
  *  This file is part of RawTherapee.
  *
  *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
@@ -17,26 +17,25 @@
  *  You should have received a copy of the GNU General Public License
  *  along with RawTherapee.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _PARTIALPASTEDLG_
-#define _PARTIALPASTEDLG_
+#pragma once
 
-#include <gtkmm.h>
-#include <unordered_map>
-#include <string>
 #include "paramsedited.h"
+#include <gtkmm.h>
+#include <string>
+#include <unordered_map>
 
 class PartialPasteDlg: public Gtk::Dialog {
 public:
-    PartialPasteDlg(const Glib::ustring &title, Gtk::Window* parent);
+    PartialPasteDlg(const Glib::ustring &title, Gtk::Window *parent);
     void set_allow_3way(bool yes) { allow_3way_ = yes; }
     ParamsEdited getParamsEdited();
 
 private:
     ParamsEdited pedited_;
-    
+
     Gtk::CheckButton *everything_;
     sigc::connection everything_conn_;
-    
+
     struct ButtonInfo {
         sigc::connection conn;
         std::vector<Gtk::CheckButton *> related;
@@ -49,6 +48,3 @@ private:
 
     void toggled(Gtk::CheckButton *which);
 };
-
-#endif
-

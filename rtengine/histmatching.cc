@@ -18,19 +18,19 @@
  *  along with RawTherapee.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "rawimagesource.h"
-#include "rtthumbnail.h"
-#include "curves.h"
-#include "color.h"
-#include "rt_math.h"
-#include "iccstore.h"
 #include "../rtgui/mydiagonalcurve.h"
-#include "improcfun.h"
 #include "array2D.h"
-//#define BENCHMARK
-//#include "StopWatch.h"
+#include "color.h"
+#include "curves.h"
+#include "iccstore.h"
+#include "improcfun.h"
+#include "rawimagesource.h"
+#include "rt_math.h"
+#include "rtthumbnail.h"
+#include "gauss.h"
+// #define BENCHMARK
+// #include "StopWatch.h"
 #include <iostream>
-
 
 namespace rtengine {
 
@@ -46,35 +46,20 @@ struct CdfInfo {
     CdfInfo(): cdf(256), min_val(-1), max_val(-1) {}
 };
 
+typedef int (*PixelGetter)(const Imagefloat &img, int y, int x);
 
-typedef int (*PixelGetter)(const IImage8 &img, int y, int x);
-
-
-int get_luminance(const IImage8 &img, int y, int x)
+int get_luminance(const Imagefloat &img, int y, int x)
 {
-    return LIM(int(Color::rgbLuminance(float(img.r(y, x)), float(img.g(y, x)), float(img.b(y, x)))), 0, 255);
+    return (int(CLIP(Color::rgbLuminance(img.r(y, x), img.g(y, x), img.b(y, x)))) * 255) / 65535;
 }
 
+int get_r(const Imagefloat &img, int y, int x) { return LIM01(img.r(y, x) / 65535.f) * 255; }
 
-int get_r(const IImage8 &img, int y, int x)
-{
-    return img.r(y, x);
-}
+int get_g(const Imagefloat &img, int y, int x) { return LIM01(img.g(y, x) / 65535.f) * 255; }
 
+int get_b(const Imagefloat &img, int y, int x) { return LIM01(img.b(y, x) / 65535.f) * 255; }
 
-int get_g(const IImage8 &img, int y, int x)
-{
-    return img.g(y, x);
-}
-
-
-int get_b(const IImage8 &img, int y, int x)
-{
-    return img.b(y, x);
-}
-
-
-CdfInfo getCdf(const IImage8 &img, PixelGetter getpix, float expcomp=0)
+CdfInfo getCdf(const Imagefloat &img, PixelGetter getpix, float expcomp = 0)
 {
     CdfInfo ret;
     const float factor = std::pow(2.f, expcomp);
@@ -101,7 +86,6 @@ CdfInfo getCdf(const IImage8 &img, PixelGetter getpix, float expcomp=0)
     return ret;
 }
 
-
 int findMatch(int val, const std::vector<int> &cdf, int j)
 {
     if (cdf[j] <= val) {
@@ -109,7 +93,7 @@ int findMatch(int val, const std::vector<int> &cdf, int j)
             if (cdf[j] == val) {
                 return j;
             } else if (cdf[j] > val) {
-                return (cdf[j] - val <= val - cdf[j-1] ? j : j-1);
+                return (cdf[j] - val <= val - cdf[j - 1] ? j : j - 1);
             }
         }
         return 255;
@@ -118,13 +102,12 @@ int findMatch(int val, const std::vector<int> &cdf, int j)
             if (cdf[j] == val) {
                 return j;
             } else if (cdf[j] < val) {
-                return (val - cdf[j] <= cdf[j+1] - val ? j : j+1);
+                return (val - cdf[j] <= cdf[j + 1] - val ? j : j + 1);
             }
         }
         return 0;
     }
 }
-
 
 void ensure_not_clipping(std::vector<double> &curve)
 {
@@ -168,7 +151,6 @@ void ensure_not_clipping(std::vector<double> &curve)
     }
 }
 
-
 void mappingToCurve(const std::vector<int> &mapping, std::vector<double> &curve)
 {
     curve.clear();
@@ -180,37 +162,37 @@ void mappingToCurve(const std::vector<int> &mapping, std::vector<double> &curve)
         }
     }
     if (idx == int(mapping.size())) {
-        for (idx = 1; idx < int(mapping.size())-1; ++idx) {
+        for (idx = 1; idx < int(mapping.size()) - 1; ++idx) {
             if (mapping[idx] >= idx) {
                 break;
             }
         }
     }
 
-    auto coord = [](int v) -> double { return double(v)/255.0; };
-    auto doit =
-        [&](int start, int stop, int step, bool addstart, int maxdelta=0) -> void
-        {
-            if (!maxdelta) maxdelta = step * 2;
-            int prev = start;
-            if (addstart && mapping[start] >= 0) {
-                curve.push_back(coord(start));
-                curve.push_back(coord(mapping[start]));
+    auto coord = [](int v) -> double { return double(v) / 255.0; };
+    auto doit = [&](int start, int stop, int step, bool addstart,
+                    int maxdelta = 0) -> void {
+        if (!maxdelta)
+            maxdelta = step * 2;
+        int prev = start;
+        if (addstart && mapping[start] >= 0) {
+            curve.push_back(coord(start));
+            curve.push_back(coord(mapping[start]));
+        }
+        for (int i = start; i < stop; ++i) {
+            int v = mapping[i];
+            if (v < 0) {
+                continue;
             }
-            for (int i = start; i < stop; ++i) {
-                int v = mapping[i];
-                if (v < 0) {
-                    continue;
-                }
-                bool change = i > 0 && v != mapping[i-1];
-                int diff = i - prev;
-                if ((change && std::abs(diff - step) <= 1) || diff > maxdelta) {
-                    curve.push_back(coord(i));
-                    curve.push_back(coord(v));
-                    prev = i;
-                }
+            bool change = i > 0 && v != mapping[i - 1];
+            int diff = i - prev;
+            if ((change && std::abs(diff - step) <= 1) || diff > maxdelta) {
+                curve.push_back(coord(i));
+                curve.push_back(coord(v));
+                prev = i;
             }
-        };
+        }
+    };
 
     curve.push_back(0.0);
     curve.push_back(0.0);
@@ -221,7 +203,7 @@ void mappingToCurve(const std::vector<int> &mapping, std::vector<double> &curve)
     }
 
     const int npoints = 8;
-    int step = std::max(int(mapping.size())/npoints, 1);
+    int step = std::max(int(mapping.size()) / npoints, 1);
     int end = mapping.size();
     if (idx <= end / 3) {
         doit(start, idx, idx / 2, true);
@@ -229,10 +211,12 @@ void mappingToCurve(const std::vector<int> &mapping, std::vector<double> &curve)
         doit(idx, end, step, false, step);
     } else {
         doit(start, idx, idx > step ? step : idx / 2, true);
-        doit(idx, end, step, idx - step > step / 2 && std::abs(curve[curve.size()-2] - coord(idx)) > 0.01);
+        doit(idx, end, step,
+             idx - step > step / 2 &&
+                 std::abs(curve[curve.size() - 2] - coord(idx)) > 0.01);
     }
 
-    if (curve.size() > 2 && (1 - curve[curve.size()-2] <= coord(step) / 3)) {
+    if (curve.size() > 2 && (1 - curve[curve.size() - 2] <= coord(step) / 3)) {
         curve.pop_back();
         curve.pop_back();
     }
@@ -242,17 +226,15 @@ void mappingToCurve(const std::vector<int> &mapping, std::vector<double> &curve)
 
     // we assume we are matching an S-shaped curve, so try to avoid
     // concavities in the upper part of the S
-    const auto getpos =
-        [](float x, float xa, float ya, float xb, float yb)
-        {
-            // line equation:
-            // (x - xa) / (xb - xa) = (y - ya) / (yb - ya)
-            return (x - xa) / (xb - xa) * (yb - ya) + ya;
-        };
+    const auto getpos = [](float x, float xa, float ya, float xb, float yb) {
+        // line equation:
+        // (x - xa) / (xb - xa) = (y - ya) / (yb - ya)
+        return (x - xa) / (xb - xa) * (yb - ya) + ya;
+    };
     idx = -1;
-    for (ssize_t i = curve.size()-1; i > 0; i -= 2) {
+    for (ssize_t i = curve.size() - 1; i > 0; i -= 2) {
         if (curve[i] <= 0.f) {
-            idx = i+1;
+            idx = i + 1;
             break;
         }
     }
@@ -261,17 +243,18 @@ void mappingToCurve(const std::vector<int> &mapping, std::vector<double> &curve)
         // for each 3 consecutive points (xa, ya), (x, y), (xb, yb) we check
         // that y is above the point at x of the line between the other two
         // if this is not the case, we remove (x, y) from the curve
-        while (size_t(idx+5) < curve.size()) {
+        while (size_t(idx + 5) < curve.size()) {
             float xa = curve[idx];
-            float ya = curve[idx+1];
-            float x = curve[idx+2];
-            float y = curve[idx+3];
-            float xb = curve[idx+4];
-            float yb = curve[idx+5];
+            float ya = curve[idx + 1];
+            float x = curve[idx + 2];
+            float y = curve[idx + 3];
+            float xb = curve[idx + 4];
+            float yb = curve[idx + 5];
             float yy = getpos(x, xa, ya, xb, yb);
             if (yy > y) {
                 // we have to remove (x, y) from the curve
-                curve.erase(curve.begin()+(idx+2), curve.begin()+(idx+4));
+                curve.erase(curve.begin() + (idx + 2),
+                            curve.begin() + (idx + 4));
             } else {
                 // move on to the next point
                 idx += 2;
@@ -280,11 +263,11 @@ void mappingToCurve(const std::vector<int> &mapping, std::vector<double> &curve)
     }
 
     if (curve.size() < 4) {
-        curve = { DCT_Linear }; // not enough points, fall back to linear
+        curve = {DCT_Linear}; // not enough points, fall back to linear
     } else {
         curve.insert(curve.begin(), DCT_Spline);
         DiagonalCurve c(curve);
-        curve = { DCT_Spline/*DCT_CatmullRom*/ };
+        curve = {DCT_Spline /*DCT_CatmullRom*/};
         double pivot = -1.0;
         for (int i = 25; i < 256; ++i) {
             double xx = double(i) / 255.0;
@@ -316,87 +299,84 @@ void mappingToCurve(const std::vector<int> &mapping, std::vector<double> &curve)
             }
             curve.push_back(1.0);
             curve.push_back(c.getVal(1.0));
-        }        
+        }
     }
 }
 
+// class CurveEvaluator {
+// public:
+//     CurveEvaluator(const Imagefloat &source, const Imagefloat &target): srchist_{}
+//     {
+//         int sw = source.getWidth();
+//         int sh = source.getHeight();
+//         float s = 300 / float(std::max(sw, sh));
+//         int w = sw * s;
+//         int h = sh * s;
+//         img_(w, h);
 
-class CurveEvaluator {
-public:
-    CurveEvaluator(const IImage8 &source, const IImage8 &target):
-        srchist_{}
-    {
-        int sw = source.getWidth();
-        int sh = source.getHeight();
-        float s = 300 / float(std::max(sw, sh));
-        int w = sw * s;
-        int h = sh * s;
-        img_(w, h);
+//         for (int y = 0; y < h; ++y) {
+//             int sy = y / s;
+//             for (int x = 0; x < w; ++x) {
+//                 int sx = x / s;
+//                 int l = get_luminance(source, sy, sx);
+//                 img_[y][x] = float(get_luminance(target, sy, sx)) / 255.f;
+//                 ++srchist_[l];
+//             }
+//         }
+//     }
 
-        for (int y = 0; y < h; ++y) {
-            int sy = y / s;
-            for (int x = 0; x < w; ++x) {
-                int sx = x / s;
-                int l = get_luminance(source, sy, sx);
-                img_[y][x] = float(get_luminance(target, sy, sx)) / 255.f;
-                ++srchist_[l];
-            }
-        }
-    }
+//     double operator()(const std::vector<double> &curve)
+//     {
+//         std::array<float, 256> hist = {};
+//         DiagonalCurve c(curve);
 
-    double operator()(const std::vector<double> &curve)
-    {
-        std::array<float, 256> hist = {};
-        DiagonalCurve c(curve);
+//         for (int y = 0; y < img_.height(); ++y) {
+//             for (int x = 0; x < img_.width(); ++x) {
+//                 int l = LIM01(c.getVal(img_[y][x])) * 255.f;
+//                 ++hist[l];
+//             }
+//         }
 
-        for (int y = 0; y < img_.height(); ++y) {
-            for (int x = 0; x < img_.width(); ++x) {
-                int l = LIM01(c.getVal(img_[y][x])) * 255.f;
-                ++hist[l];
-            }
-        }
+//         size_t ret = 0;
+//         for (size_t i = 0; i < hist.size(); ++i) {
+//             ret += std::abs(srchist_[i] - hist[i]);
+//         }
+//         return ret * (is_scurve(curve) ? 0.1 : 1);
+//     }
 
-        size_t ret = 0;
-        for (size_t i = 0; i < hist.size(); ++i) {
-            ret += std::abs(srchist_[i] - hist[i]);
-        }
-        return ret * (is_scurve(curve) ? 0.1 : 1);
-    }
-    
-private:
-    bool is_scurve(const std::vector<double> &curve) const
-    {
-        int shoulder = -1;
-        float prev = 0.f;
-        for (size_t i = 1; i < curve.size(); i += 2) {
-            if (shoulder < 0) {
-                if (curve[i] >= curve[i+1] && curve[i] > 0) {
-                    shoulder = 1;
-                } else if (curve[i] > 0) {
-                    return false;
-                }
-            } else if (shoulder == 1) {
-                if (curve[i] < curve[i+1]) {
-                    shoulder = 0;
-                }
-            } else {
-                if (curve[i] >= curve[i+1] && curve[i] < 1) {
-                    return false;
-                } else if (curve[i+1] < prev) {
-                    return false;
-                }
-                prev = curve[i+1];
-            }
-        }
-        return shoulder >= 0;
-    }
-    
-    std::array<float, 256> srchist_;
-    array2D<float> img_;
-};
+// private:
+//     bool is_scurve(const std::vector<double> &curve) const
+//     {
+//         int shoulder = -1;
+//         float prev = 0.f;
+//         for (size_t i = 1; i < curve.size(); i += 2) {
+//             if (shoulder < 0) {
+//                 if (curve[i] >= curve[i + 1] && curve[i] > 0) {
+//                     shoulder = 1;
+//                 } else if (curve[i] > 0) {
+//                     return false;
+//                 }
+//             } else if (shoulder == 1) {
+//                 if (curve[i] < curve[i + 1]) {
+//                     shoulder = 0;
+//                 }
+//             } else {
+//                 if (curve[i] >= curve[i + 1] && curve[i] < 1) {
+//                     return false;
+//                 } else if (curve[i + 1] < prev) {
+//                     return false;
+//                 }
+//                 prev = curve[i + 1];
+//             }
+//         }
+//         return shoulder >= 0;
+//     }
 
+//     std::array<float, 256> srchist_;
+//     array2D<float> img_;
+// };
 
-int avg_luminance(const IImage8 &img, int starty, int startx, int tilesize)
+int avg_luminance(const Imagefloat &img, int starty, int startx, int tilesize)
 {
     int ret = 0;
     for (int j = 0; j < tilesize; ++j) {
@@ -408,18 +388,16 @@ int avg_luminance(const IImage8 &img, int starty, int startx, int tilesize)
     return float(ret) / float(SQR(tilesize));
 }
 
-
-int max_corner_luminance(const IImage8 &img)
+int max_corner_luminance(const Imagefloat &img)
 {
     int w = img.getWidth();
     int h = img.getHeight();
     int l_tl = avg_luminance(img, 0, 0, 4);
-    int l_tr = avg_luminance(img, 0, w-1-4, 4);
-    int l_bl = avg_luminance(img, h-1-4, 0, 4);
-    int l_br = avg_luminance(img, h-1-4, w-1-4, 4);
+    int l_tr = avg_luminance(img, 0, w - 1 - 4, 4);
+    int l_bl = avg_luminance(img, h - 1 - 4, 0, 4);
+    int l_br = avg_luminance(img, h - 1 - 4, w - 1 - 4, 4);
     return max(l_tl, l_tr, l_bl, l_br);
 }
-
 
 double get_expcomp(const FramesMetaData *md)
 {
@@ -429,7 +407,7 @@ double get_expcomp(const FramesMetaData *md)
         if (it != mn.end()) {
             double e = -std::atof(it->second.c_str());
             if (e > 1) {
-                return std::log(e)/std::log(2.4);
+                return std::log(e) / std::log(2.4);
             } else if (e > 0) {
                 return e / 2.4;
             }
@@ -438,27 +416,50 @@ double get_expcomp(const FramesMetaData *md)
     return 0.0;
 }
 
+
+void do_blur(Imagefloat *img, int radius)
+{
+    const int W = img->getWidth(), H = img->getHeight();
+#ifdef _OPENMP
+#   pragma omp parallel
+#endif
+    {
+        gaussianBlur(img->r.ptrs, img->r.ptrs, W, H, radius);
+        gaussianBlur(img->g.ptrs, img->g.ptrs, W, H, radius);
+        gaussianBlur(img->b.ptrs, img->b.ptrs, W, H, radius);
+    }
+}
+
+
+Imagefloat *to_float(const IImage8 *src)
+{
+    Imagefloat *res = new Imagefloat(src->getWidth(), src->getHeight());
+    src->resizeImgTo(src->getWidth(), src->getHeight(), TI_Nearest, res);
+    return res;
+}
+
 } // namespace
 
-
-void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, std::vector<double> &outCurve, std::vector<double> &outCurve2)
+void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp,
+                                             std::vector<double> &outCurve,
+                                             std::vector<double> &outCurve2)
 {
-//    BENCHFUN
+    //    BENCHFUN
 
     if (settings->verbose) {
-        std::cout << "performing histogram matching for " << getFileName() << " on the embedded thumbnail" << std::endl;
+        std::cout << "performing histogram matching for " << getFileName()
+                  << " on the embedded thumbnail" << std::endl;
     }
 
-    const auto same_profile =
-        [](const ColorManagementParams &a, const ColorManagementParams &b) -> bool
-        {
-            return (a.inputProfile == b.inputProfile
-                    && a.toneCurve == b.toneCurve
-                    && a.applyLookTable == b.applyLookTable
-                    && a.applyBaselineExposureOffset == b.applyBaselineExposureOffset
-                    && a.applyHueSatMap == b.applyHueSatMap
-                    && a.dcpIlluminant == b.dcpIlluminant);
-        };
+    const auto same_profile = [](const ColorManagementParams &a,
+                                 const ColorManagementParams &b) -> bool {
+        return (
+            a.inputProfile == b.inputProfile && a.toneCurve == b.toneCurve &&
+            a.applyLookTable == b.applyLookTable &&
+            a.applyBaselineExposureOffset == b.applyBaselineExposureOffset &&
+            a.applyHueSatMap == b.applyHueSatMap &&
+            a.dcpIlluminant == b.dcpIlluminant);
+    };
 
     if (!histMatchingCache.empty() && same_profile(histMatchingParams, cp)) {
         if (settings->verbose) {
@@ -469,8 +470,8 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
         return;
     }
 
-    outCurve = { DCT_Linear };
-    outCurve2 = { DCT_Linear };
+    outCurve = {DCT_Linear};
+    outCurve2 = {DCT_Linear};
 
     int fw, fh;
     getFullSize(fw, fh, TR_NONE);
@@ -480,7 +481,8 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
     int skip = 3;
 
     if (settings->verbose > 1) {
-        std::cout << "histogram matching: full raw image size is " << fw << "x" << fh << std::endl;
+        std::cout << "histogram matching: full raw image size is " << fw << "x"
+                  << fh << std::endl;
     }
 
     ProcParams neutral;
@@ -489,14 +491,17 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
     neutral.raw.xtranssensor.method = RAWParams::XTransSensor::Method::FAST;
     neutral.icm.outputProfile = ColorManagementParams::NoICMString;
 
-    std::unique_ptr<IImage8> source;
+    std::unique_ptr<Imagefloat> source;
     {
         eSensorType sensor_type;
         int w = -1, h = -1;
-        std::unique_ptr<Thumbnail> thumb(Thumbnail::loadQuickFromRaw(getFileName(), sensor_type, w, h, 1, false, true));
+        std::unique_ptr<Thumbnail> thumb(Thumbnail::loadQuickFromRaw(
+            getFileName(), sensor_type, w, h, 1, false, true));
         if (!thumb) {
             if (settings->verbose) {
-                std::cout << "histogram matching: no thumbnail found, generating a neutral curve" << std::endl;
+                std::cout << "histogram matching: no thumbnail found, "
+                             "generating a neutral curve"
+                          << std::endl;
             }
             histMatchingCache = outCurve;
             histMatchingCache2 = outCurve2;
@@ -504,37 +509,53 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
             return;
         } else if (w * 10 < fw) {
             if (settings->verbose) {
-                std::cout << "histogram matching: the embedded thumbnail is too small: " << w << "x" << h << std::endl;
+                std::cout << "histogram matching: the embedded thumbnail is "
+                             "too small: "
+                          << w << "x" << h << std::endl;
             }
             histMatchingCache = outCurve;
             histMatchingCache2 = outCurve2;
             histMatchingParams = cp;
             return;
         }
-        skip = LIM(skip * fh / h, 6, 10); // adjust the skip factor -- the larger the thumbnail, the less we should skip to get a good match
-        source.reset(thumb->quickProcessImage(neutral, fh / skip, TI_Nearest));
+        skip = LIM(skip * fh / h, 6,
+                   10); // adjust the skip factor -- the larger the thumbnail,
+                        // the less we should skip to get a good match
+        std::unique_ptr<IImage8> img8(
+            thumb->quickProcessImage(neutral, fh / skip, TI_Nearest));
+        source.reset(to_float(img8.get()));
 
         if (settings->verbose > 1) {
-            std::cout << "histogram matching: extracted embedded thumbnail" << std::endl;
+            std::cout << "histogram matching: extracted embedded thumbnail"
+                      << std::endl;
         }
     }
 
-    std::unique_ptr<IImage8> target;
+    std::unique_ptr<Imagefloat> target;
     {
         eSensorType sensor_type;
         double scale;
         int w = fw / skip, h = fh / skip;
-        std::unique_ptr<Thumbnail> thumb(Thumbnail::loadFromRaw(getFileName(), sensor_type, w, h, 1, false, false, true));
+        std::unique_ptr<Thumbnail> thumb(Thumbnail::loadFromRaw(
+            getFileName(), sensor_type, w, h, 1, false, false, true));
         if (!thumb) {
             if (settings->verbose) {
-                std::cout << "histogram matching: raw decoding failed, generating a neutral curve" << std::endl;
+                std::cout << "histogram matching: raw decoding failed, "
+                             "generating a neutral curve"
+                          << std::endl;
             }
             histMatchingCache = outCurve;
             histMatchingCache2 = outCurve2;
             histMatchingParams = cp;
             return;
         }
-        target.reset(thumb->processImage(neutral, sensor_type, fh / skip, TI_Nearest, getMetaData(), scale, false, true));
+        {
+            std::unique_ptr<IImage8> img8(
+                thumb->processImage(neutral, sensor_type, fh / skip,
+                                    TI_Nearest, getMetaData(), scale,
+                                    false, true));
+            target.reset(to_float(img8.get()));
+        }
 
         int sw = source->getWidth(), sh = source->getHeight();
         int tw = target->getWidth(), th = target->getHeight();
@@ -544,23 +565,29 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
         int tl = max_corner_luminance(*target);
         int sl = max_corner_luminance(*source);
         const int l_noise = 10;
-        if (tl <= l_noise && sl > l_noise) {
+        if ((tl <= l_noise && sl > l_noise) || (tl > 0 && sl > l_noise && sl / tl > 2)) {
             if (settings->verbose > 1) {
-                std::cout << "histogram matching: corners luminance is "
-                          << tl << " for target, " << sl << " for source, "
+                std::cout << "histogram matching: corners luminance is " << tl
+                          << " for target, " << sl << " for source, "
                           << "trying to perform auto-distortion correction"
                           << std::endl;
             }
             neutral.distortion.enabled = true;
-            neutral.distortion.amount = ImProcFunctions::getAutoDistor(getFileName(), 300);
+            neutral.distortion.amount =
+                ImProcFunctions::getAutoDistor(getFileName(), 300);
             if (neutral.distortion.amount != 0) {
                 if (settings->verbose > 1) {
-                    std::cout << "histogram matching: dark corners detected, reprocessing with auto-distortion correction" << std::endl;
+                    std::cout << "histogram matching: dark corners detected, "
+                                 "reprocessing with auto-distortion correction"
+                              << std::endl;
                 }
-                target.reset(thumb->processImage(neutral, sensor_type, fh / skip, TI_Nearest, getMetaData(), scale, false, true));
+                std::unique_ptr<IImage8> img8(
+                    thumb->processImage(
+                        neutral, sensor_type, fh / skip, TI_Nearest, getMetaData(), scale, false, true));
+                target.reset(to_float(img8.get()));
             }
-        }            
-        
+        }
+
         float thumb_ratio = float(std::max(sw, sh)) / float(std::min(sw, sh));
         float target_ratio = float(std::max(tw, th)) / float(std::min(tw, th));
         int cx = 0, cy = 0;
@@ -577,19 +604,22 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
                 tw -= cw;
             }
             if (settings->verbose > 1) {
-                std::cout << "histogram matching: cropping target to get an aspect ratio of " << round(thumb_ratio * 100)/100.0 << ":1, new size is " << tw << "x" << th << std::endl;
+                std::cout << "histogram matching: cropping target to get an "
+                             "aspect ratio of "
+                          << round(thumb_ratio * 100) / 100.0
+                          << ":1, new size is " << tw << "x" << th << std::endl;
             }
 
             if (cx || cy) {
-                Image8 *tmp = new Image8(tw, th);
+                Imagefloat *tmp = new Imagefloat(tw, th);
 #ifdef _OPENMP
-                #pragma omp parallel for
+#               pragma omp parallel for
 #endif
                 for (int y = 0; y < th; ++y) {
                     for (int x = 0; x < tw; ++x) {
-                        tmp->r(y, x) = target->r(y+cy, x+cx);
-                        tmp->g(y, x) = target->g(y+cy, x+cx);
-                        tmp->b(y, x) = target->b(y+cy, x+cx);
+                        tmp->r(y, x) = target->r(y + cy, x + cx);
+                        tmp->g(y, x) = target->g(y + cy, x + cx);
+                        tmp->b(y, x) = target->b(y + cy, x + cx);
                     }
                 }
                 target.reset(tmp);
@@ -597,20 +627,27 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
         }
 
         if (settings->verbose > 1) {
-            std::cout << "histogram matching: generated neutral rendering" << std::endl;
+            std::cout << "histogram matching: generated neutral rendering"
+                      << std::endl;
         }
     }
-    if (target->getWidth() != source->getWidth() || target->getHeight() != source->getHeight()) {
-        Image8 *tmp = new Image8(source->getWidth(), source->getHeight());
-        target->resizeImgTo(source->getWidth(), source->getHeight(), TI_Nearest, tmp);
+    if (target->getWidth() != source->getWidth() ||
+        target->getHeight() != source->getHeight()) {
+        Imagefloat *tmp = new Imagefloat(source->getWidth(), source->getHeight());
+        target->resizeImgTo(source->getWidth(), source->getHeight(), TI_Nearest,
+                            tmp);
         target.reset(tmp);
     }
-    
+
+    {
+        int radius = 2;
+        do_blur(source.get(), radius);
+        do_blur(target.get(), radius);
+    }
+
     static const std::vector<PixelGetter> getters = {
-        &get_luminance,
-        &get_r,
-        &get_g,
-        &get_b
+        &get_luminance
+        //, &get_r, &get_g, &get_b
     };
     std::vector<std::vector<double>> candidates;
     double expcomp = get_expcomp(getMetaData());
@@ -622,7 +659,8 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
         int j = 0;
         for (int i = 0; i < int(tcdf.cdf.size()); ++i) {
             j = findMatch(tcdf.cdf[i], scdf.cdf, j);
-            if (i >= tcdf.min_val && i <= tcdf.max_val && j >= scdf.min_val && j <= scdf.max_val) {
+            if (i >= tcdf.min_val && i <= tcdf.max_val && j >= scdf.min_val &&
+                j <= scdf.max_val) {
                 mapping.push_back(j);
             } else {
                 mapping.push_back(-1);
@@ -632,38 +670,40 @@ void RawImageSource::getAutoMatchedToneCurve(const ColorManagementParams &cp, st
         candidates.push_back({});
         mappingToCurve(mapping, candidates.back());
     }
-    CurveEvaluator eval(*source, *target);
-    size_t best = candidates.size();
-    double bestscore = RT_INFINITY;
-    for (size_t i = 0; i < candidates.size(); ++i) {
-        double score = eval(candidates[i]);
-        if (i == 0) {
-            score *= 0.9; // give more weight to the luminance curve
-        }
-        if (settings->verbose > 1) {
-            std::cout << "histogram matching: candidate " << i
-                      << " has score " << score << std::endl;
-        }
-        if (score < bestscore) {
-            best = i;
-            bestscore = score;
-        }
-    }
+    // CurveEvaluator eval(*source, *target);
+    // size_t best = candidates.size();
+    // double bestscore = RT_INFINITY;
+    // for (size_t i = 0; i < candidates.size(); ++i) {
+    //     double score = eval(candidates[i]);
+    //     if (i == 0) {
+    //         score *= 0.9; // give more weight to the luminance curve
+    //     }
+    //     if (settings->verbose > 1) {
+    //         std::cout << "histogram matching: candidate " << i << " has score "
+    //                   << score << std::endl;
+    //     }
+    //     if (score < bestscore) {
+    //         best = i;
+    //         bestscore = score;
+    //     }
+    // }
+    size_t best = 0;
     outCurve = candidates[best];
     if (expcomp > 0.f) {
         double x = 0.3;
         double y = x * std::pow(2.0, expcomp);
-        outCurve2 = { DCT_CatmullRom, 0.0, 0.0, x, y, 1.0, 1.0 };
+        outCurve2 = {DCT_CatmullRom, 0.0, 0.0, x, y, 1.0, 1.0};
         if (outCurve.size() > 5 && outCurve[4] > outCurve[3]) {
             outCurve = outCurve2;
-            outCurve2 = { DCT_Linear };
+            outCurve2 = {DCT_Linear};
         }
     }
 
     if (settings->verbose) {
-        std::cout << "histogram matching: best match found at " << best
-                  << " with score " << bestscore << std::endl;
-        std::cout << "histogram matching: generated curve with " << outCurve.size()/2 << " control points" << std::endl;
+        // std::cout << "histogram matching: best match found at " << best
+        //           << " with score " << bestscore << std::endl;
+        std::cout << "histogram matching: generated curve with "
+                  << outCurve.size() / 2 << " control points" << std::endl;
     }
 
     histMatchingCache = outCurve;

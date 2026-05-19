@@ -1,8 +1,8 @@
 #00 Hungary - Hungarian
 #01 Developers should add translations to this file and then run the 'generateTranslationDiffs' Bash script to update other locales.
 #02 Translators please append a comment here with the current date and your name(s) as used in the RawTherapee/ART forum or Bitbucket page, e.g.:
-#03 2025-11-16 Bereczky Péter
-# ART version: 1.25.11
+#03 2026-02-15 Bereczky Péter
+# ART version: 1.26.4
 ABOUT_TAB_BUILD;Verzió
 ABOUT_TAB_CREDITS;Szerzők
 ABOUT_TAB_LICENSE;Licenc
@@ -174,6 +174,7 @@ FILEBROWSER_POPUPRANK3;Értékelés 3 ***
 FILEBROWSER_POPUPRANK4;Értékelés 4 ****
 FILEBROWSER_POPUPRANK5;Értékelés 5 *****
 FILEBROWSER_POPUPREMOVE;Törlés
+FILEBROWSER_POPUPRENAME;Átnevezés/Áthelyezés
 FILEBROWSER_POPUPREMOVEINCLPROC;Végleges törlés az eredményül kapott képekkel együtt
 FILEBROWSER_POPUPRENAME;Átnevezés
 FILEBROWSER_POPUPSELECTALL;Összes kijelölése
@@ -188,7 +189,10 @@ FILEBROWSER_RANK2_TOOLTIP;Értékelés 2 *\nGyorsbillentyű: <b>Shift-2</b>
 FILEBROWSER_RANK3_TOOLTIP;Értékelés 3 *\nGyorsbillentyű: <b>Shift-3</b>
 FILEBROWSER_RANK4_TOOLTIP;Értékelés 4 *\nGyorsbillentyű: <b>Shift-4</b>
 FILEBROWSER_RANK5_TOOLTIP;Értékelés 5 *\nGyorsbillentyű: <b>Shift-5</b>
-FILEBROWSER_RENAMEDLGLABEL;Fájl(ok) átnevezése
+FILEBROWSER_RENAMEDLGLABEL;Fájl(ok) Átnevezése/Áthelyezése
+FILEBROWSER_RENAME_DIALOG_LOAD_TIP;Beállítások betöltése fájlból
+FILEBROWSER_RENAME_DIALOG_SAVE_TIP;Beállítások mentése fájlba
+FILEBROWSER_RENAME_DIALOG_RESET_TIP;Beállítások visszaállítása az alapértelmezett értékekre
 FILEBROWSER_RESETDEFAULTPROFILE;Visszaállítás az alapértelmezettre
 FILEBROWSER_SELECTDARKFRAME;dark-frame kiválasztása
 FILEBROWSER_SELECTFLATFIELD;flat-field kiválasztása
@@ -236,10 +240,15 @@ FILECHOOSER_FILTER_ANY;Minden fájl
 FILECHOOSER_FILTER_COLPROF;Színprofilok (*.icc)
 FILECHOOSER_FILTER_CURVE;Görbe fájlok
 FILECHOOSER_FILTER_LCP;Objektívkorrekciós profilok
+FILECHOOSER_FILTER_INI;Konfigurációs fájlok (*.ini)
 FILECHOOSER_FILTER_PP;Feldolgozási profilok
 FILECHOOSER_FILTER_SAME;Az aktuális fényképpel megegyező formátumú
 FILECHOOSER_FILTER_TIFF;TIFF fájlok
 FILECHOOSER_FILTER_LUT;Támogatott LUT fájlok
+FONTCHOOSER_FAMILY;Betűtípuscsalád
+FONTCHOOSER_PREVIEW_TEXT;A gyors barna róka átugrik a lusta kutya felett
+FONTCHOOSER_SIZE;Betűméret
+FONTCHOOSER_TITLE;Betűtípus-választó
 GENERAL_ABOUT;Névjegy
 GENERAL_AFTER;Utána
 GENERAL_APPLY;Alkalmaz
@@ -259,6 +268,7 @@ GENERAL_ENABLED;Engedélyezett
 GENERAL_FILE;Fájl
 GENERAL_HIGH;Magas
 GENERAL_LANDSCAPE;Fekvő
+GENERAL_LOAD;Betöltés
 GENERAL_LOW;Alacsony
 GENERAL_MEDIUM;Közepes
 GENERAL_NA;n/a
@@ -276,6 +286,7 @@ GENERAL_WARNING;Figyelmeztetés
 GENERAL_DEPRECATED;Elavult
 GENERAL_DEPRECATED_TOOLTIP;Elavult! Eltávolításra kerül egy későbbi verzióban.
 GIMP_PLUGIN_INFO;Üdvözöljük az ART GIMP beépülő modulban!\nHa végzett a szerkesztéssel, egyszerűen zárja be az ART-ot, és a kép automatikusan importálásra kerül a GIMP-be.
+HIDPI_PREVIEW;Engedélyezze a képpontonkénti módot (a képek megjelenítése a képernyő natív felbontásával).
 HISTOGRAM_RAW_STATS_TOOLTIP;min: %1 (%2), max: %3 (%4), csúcs: %5 (%6)\n    terjedelem: %7 EV, értékek: %8, képpontok: %9
 HISTOGRAM_TOOLTIP_B;Kék hisztogram megjelenítése/elrejtése.
 HISTOGRAM_TOOLTIP_BAR;RGB jelzősáv megjelenítése/elrejtése.
@@ -1075,6 +1086,7 @@ PREFERENCES_FORRAW;Raw fotókhoz
 PREFERENCES_FSTRIP_SAME_THUMB_HEIGHT;Ugyanaz a bélyegkép magasság a Filmszalagnál és a Fájlböngészőnél
 PREFERENCES_FSTRIP_SAME_THUMB_HEIGHT_HINT;Az eltérő bélyegkép méret több feldolgozási időt igényel minden alkalommal, amikor a Szerkesztő lap és a Fájlböngésző között vált.
 PREFERENCES_GIMPPATH;GIMP telepítés könyvtára
+PREFERENCES_HIGHLIGHT_SELECTED_THUMBNAILS;Kijelölt bélyegképek kiemelése
 PREFERENCES_HISTOGRAMPOSITIONLEFT;Hisztogram a bal panelen
 PREFERENCES_HISTOGRAM_TOOLTIP;Ha engedélyezve van, a munkaprofilt használja a fő hisztogram és a Navigátor megjelenítésére, ellenkező esetben a gamma-korrigált kimeneti profil kerül felhasználásra.
 PREFERENCES_HLTHRESHOLD;A vágott csúcsfények küszöbértéke
@@ -1171,6 +1183,11 @@ PREFERENCES_SND_LNGEDITPROCDONE;Az előnézet frissítése kész
 PREFERENCES_SND_BATCHQUEUEDONE;A sor feldolgozása befejeződött
 PREFERENCES_SND_THRESHOLDSECS;Másodpercek múlva
 PREFERENCES_STARTUPIMDIR;Képkönyvtár indításkor
+PREFERENCES_SURROUND_VERYBRIGHT;Környezeti fény kompenzáció: nagyon világos környezet
+PREFERENCES_SURROUND_BRIGHT;Környezeti fény kompenzáció: világos környezet
+PREFERENCES_SURROUND_OFF;Környezeti fény kompenzáció: nincs
+PREFERENCES_SURROUND_DIM;Környezeti fény kompenzáció: gyengén megvilágított környezet
+PREFERENCES_SURROUND_DARK;Környezeti fény kompenzáció: sötét környezet
 PREFERENCES_TAB_BROWSER;Fájlböngésző
 PREFERENCES_TAB_COLORMGR;Színkezelés
 PREFERENCES_TAB_DYNAMICPROFILE;Dinamikus profil szabály
@@ -1593,7 +1610,7 @@ TP_ICM_BPC;Feketepont-kompenzáció
 TP_ICM_DCP_LOOK_PIPELINE_POS;"Look" (nézetmódosító) alkalmazása
 TP_ICM_DCP_LOOK_PIPELINE_POS_EARLY;A csővezeték elején
 TP_ICM_DCP_LOOK_PIPELINE_POS_LATE;Később a csővezetékben
-TP_ICM_DCP_LOOK_PIPELINE_POS_TOOLTIP;Szabályozza, hogy mikor kell alkalmazni a DCP-profil "look" (nézet) módosítóit (look táblázat, kiindulási expozíció és tónusgörbe) a feldolgozási folyamatban. A megjelenés korábbi alkalmazása (a szín-/tónuskorrekció előtt) jobban megfelel az eredeti Adobe DNG-specifikációknak, de olyan vágott kiemeléseket eredményezhet, amelyeket a helyi szerkesztőeszközök nem tudnak visszaállítani.
+TP_ICM_DCP_LOOK_PIPELINE_POS_TOOLTIP;Szabályozza, hogy mikor kell alkalmazni a DCP-profil "look" (nézet) módosítóit ("look" táblázat, alapexpozíció és tónusgörbe) a feldolgozási folyamatban. A módosítók korábbi alkalmazása (a szín-/tónuskorrekció előtt) jobban megfelel az eredeti Adobe DNG-specifikációknak, de olyan vágott kiemeléseket eredményezhet, amelyeket a helyi szerkesztőeszközök nem tudnak visszaállítani.
 TP_ICM_DCPILLUMINANT;Fényforrás
 TP_ICM_DCPILLUMINANT_INTERPOLATED;Interpolált
 TP_ICM_DCPILLUMINANT_TOOLTIP;Válassza ki, melyik beágyazott DCP fényforrást használja. Az alapértelmezett az "interpolált", ami a kettő keveréke a fehéregyensúly alapján. A beállítás csak akkor érhető el, ha egy interpoláció-támogatással rendelkező, kettős megvilágítású DCP van kiválasztva.
@@ -1619,7 +1636,7 @@ TP_ICM_SAVEREFERENCE_APPLYWB;Fehéregyensúly alkalmazása
 TP_ICM_SAVEREFERENCE_APPLYWB_TOOLTIP;Általában használja a fehéregyensúlyt a képek mentésekor ICC-profilok létrehozásához, és ne alkalmazza a fehéregyensúlyt DCP-profilok létrehozásához.
 TP_ICM_SAVEREFERENCE_TOOLTIP;Mentse el a lineáris TIFF-képet a bemeneti profil alkalmazása előtt. Az eredmény használható kalibrálási célokra és kameraprofil létrehozására.
 TP_ICM_TONECURVE;Tónusgörbe
-TP_ICM_TONECURVE_TOOLTIP;Használja a beágyazott DCP hanggörbét. A beállítás csak akkor érhető el, ha a kiválasztott DCP rendelkezik hanggörbével.
+TP_ICM_TONECURVE_TOOLTIP;Használja a beágyazott DCP tónusgörbét. A beállítás csak akkor érhető el, ha a kiválasztott DCP rendelkezik tónusgörbével.
 TP_ICM_WORKINGPROFILE;Munkaprofil
 TP_ICM_INPUT_CAT;Hajtsa végre a kromatikus adaptációt (CAT)
 TP_IMPULSEDENOISE_LABEL;Impulzuszaj csökkentés

@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 #include <vector>
+#include <string>
 
 namespace rtengine {
 
@@ -48,6 +49,5 @@ struct GainMap {
     std::string to_str() const;
     static std::vector<GainMap> read(const std::vector<uint8_t> &buf);
 };
-
 
 } // namespace rtengine

@@ -20,34 +20,31 @@
 
 #include <cstring>
 
-#include "guiutils.h"
-#include "threadutils.h"
-#include "rtimage.h"
-#include "multilangmgr.h"
-#include "thumbbrowserbase.h"
 #include "../rtengine/processingjob.h"
+#include "guiutils.h"
+#include "multilangmgr.h"
+#include "rtimage.h"
+#include "threadutils.h"
+#include "thumbbrowserbase.h"
 
 bool BatchQueueEntry::iconsLoaded(false);
-Glib::RefPtr<Gdk::Pixbuf> BatchQueueEntry::savedAsIcon;
-Glib::RefPtr<Gdk::Pixbuf> BatchQueueEntry::fastExportIcon;
+std::shared_ptr<RTSurface> BatchQueueEntry::savedAsIcon;
+std::shared_ptr<RTSurface> BatchQueueEntry::fastExportIcon;
 
-BatchQueueEntry::BatchQueueEntry (rtengine::ProcessingJob* pjob, const rtengine::procparams::ProcParams& pparams, Glib::ustring fname, int prevw, int prevh, Thumbnail* thm) :
-    ThumbBrowserEntryBase(fname),
-    origpw(prevw),
-    origph(prevh),
-    job(pjob),
-    params(pparams),
-    progress(0),
-    outFileName(""),
-    sequence(0),
-    forceFormatOpts(false),
-    fast_pipeline(job->fastPipeline())
+BatchQueueEntry::BatchQueueEntry(
+    rtengine::ProcessingJob *pjob,
+    const rtengine::procparams::ProcParams &pparams, Glib::ustring fname,
+    int prevw, int prevh, Thumbnail *thm)
+    : ThumbBrowserEntryBase(fname), origpw(prevw), origph(prevh), job(pjob),
+      params(pparams), progress(0), outFileName(""), sequence(0),
+      forceFormatOpts(false), fast_pipeline(job->fastPipeline())
 {
 
     thumbnail = thm;
 
-#if 1 //ndef WIN32
-    // The BatchQueueEntryIdleHelper tracks if an entry has been deleted while it was sitting waiting for "idle"
+#if 1 // ndef WIN32
+    // The BatchQueueEntryIdleHelper tracks if an entry has been deleted while
+    // it was sitting waiting for "idle"
     bqih = new BatchQueueEntryIdleHelper;
     bqih->bqentry = this;
     bqih->destroyed = false;
@@ -55,25 +52,26 @@ BatchQueueEntry::BatchQueueEntry (rtengine::ProcessingJob* pjob, const rtengine:
 #endif
 
     if (!iconsLoaded) {
-        savedAsIcon = RTImage::createPixbufFromFile("save-small.svg");
-        fastExportIcon = RTImage::createPixbufFromFile("fast-export-small.svg");
+        savedAsIcon = std::shared_ptr<RTSurface>(new RTSurface("save-small.svg"));
+        fastExportIcon = std::shared_ptr<RTSurface>(new RTSurface("fast-export-small.svg"));
         iconsLoaded = true;
     }
 
     if (thumbnail) {
-        thumbnail->increaseRef ();
+        thumbnail->increaseRef();
     }
 
     use_batch_profile = true;
     if (job) {
-        use_batch_profile = static_cast<rtengine::ProcessingJobImpl *>(job)->use_batch_profile;
+        use_batch_profile =
+            static_cast<rtengine::ProcessingJobImpl *>(job)->use_batch_profile;
     }
 }
 
-BatchQueueEntry::~BatchQueueEntry ()
+BatchQueueEntry::~BatchQueueEntry()
 {
 
-    batchQueueEntryUpdater.removeJobs (this);
+    batchQueueEntryUpdater.removeJobs(this);
 
     // if (opreview) {
     //     delete [] opreview;
@@ -82,7 +80,7 @@ BatchQueueEntry::~BatchQueueEntry ()
     // opreview = nullptr;
 
     if (thumbnail) {
-        thumbnail->decreaseRef ();
+        thumbnail->decreaseRef();
     }
 
     if (bqih->pending) {
@@ -92,12 +90,13 @@ BatchQueueEntry::~BatchQueueEntry ()
     }
 }
 
-void BatchQueueEntry::refreshThumbnailImage ()
+void BatchQueueEntry::refreshThumbnailImage()
 {
-    batchQueueEntryUpdater.process (nullptr, origpw, origph, preh, this, &params, thumbnail);
+    batchQueueEntryUpdater.process(nullptr, origpw, origph, getPreviewHeight(),//preh,
+                                   this, &params, thumbnail);
 }
 
-void BatchQueueEntry::calcThumbnailSize ()
+void BatchQueueEntry::calcThumbnailSize()
 {
     prew = preh * origpw / origph;
     if (prew > options.maxThumbnailWidth) {
@@ -107,47 +106,49 @@ void BatchQueueEntry::calcThumbnailSize ()
     }
 }
 
-
-void BatchQueueEntry::drawProgressBar (Glib::RefPtr<Gdk::Window> win, const Gdk::RGBA& foregr, const Gdk::RGBA& backgr, int x, int w, int y, int h)
+void BatchQueueEntry::drawProgressBar(Glib::RefPtr<Gdk::Window> win,
+                                      const Gdk::RGBA &foregr,
+                                      const Gdk::RGBA &backgr, int x, int w,
+                                      int y, int h)
 {
 
     if (processing) {
         Cairo::RefPtr<Cairo::Context> cr = win->create_cairo_context();
-        cr->set_antialias (Cairo::ANTIALIAS_SUBPIXEL);
+        cr->set_antialias(Cairo::ANTIALIAS_SUBPIXEL);
         double px = x + w / 6.0;
         double pw = w * 2.0 / 3.0;
         double py = y + h / 4.0;
         double ph = h / 2.0;
-        cr->move_to (px, py);
-        cr->line_to (px + pw, py);
-        cr->set_line_width (ph);
-        cr->set_line_cap (Cairo::LINE_CAP_ROUND);
-        cr->set_source_rgb (foregr.get_red(), foregr.get_green(), foregr.get_blue());
-        cr->stroke ();
+        cr->move_to(px, py);
+        cr->line_to(px + pw, py);
+        cr->set_line_width(ph);
+        cr->set_line_cap(Cairo::LINE_CAP_ROUND);
+        cr->set_source_rgb(foregr.get_red(), foregr.get_green(),
+                           foregr.get_blue());
+        cr->stroke();
 
-        cr->move_to (px, py);
-        cr->line_to (px + pw, py);
-        cr->set_line_width (ph * 3.0 / 4.0);
-        cr->set_source_rgb (backgr.get_red(), backgr.get_green(), backgr.get_blue());
-        cr->stroke ();
+        cr->move_to(px, py);
+        cr->line_to(px + pw, py);
+        cr->set_line_width(ph * 3.0 / 4.0);
+        cr->set_source_rgb(backgr.get_red(), backgr.get_green(),
+                           backgr.get_blue());
+        cr->stroke();
 
-        cr->move_to (px, py);
-        cr->line_to (px + pw * progress, py);
-        cr->set_line_width (ph / 2.0);
-        cr->set_source_rgb (foregr.get_red(), foregr.get_green(), foregr.get_blue());
-        cr->stroke ();
+        cr->move_to(px, py);
+        cr->line_to(px + pw * progress, py);
+        cr->set_line_width(ph / 2.0);
+        cr->set_source_rgb(foregr.get_red(), foregr.get_green(),
+                           foregr.get_blue());
+        cr->stroke();
     }
 }
 
-void BatchQueueEntry::removeButtonSet ()
-{
-    buttonSet.reset(nullptr);
-}
+void BatchQueueEntry::removeButtonSet() { buttonSet.reset(nullptr); }
 
-std::vector<Glib::RefPtr<Gdk::Pixbuf>> BatchQueueEntry::getIconsOnImageArea ()
+std::vector<std::shared_ptr<RTSurface>> BatchQueueEntry::getIconsOnImageArea()
 {
 
-    std::vector<Glib::RefPtr<Gdk::Pixbuf>> ret;
+    std::vector<std::shared_ptr<RTSurface>> ret;
 
     if (!outFileName.empty()) {
         ret.push_back(savedAsIcon);
@@ -159,90 +160,97 @@ std::vector<Glib::RefPtr<Gdk::Pixbuf>> BatchQueueEntry::getIconsOnImageArea ()
     return ret;
 }
 
-void BatchQueueEntry::getIconSize (int& w, int& h) const
+void BatchQueueEntry::getIconSize(int &w, int &h) const
 {
-
-    w = savedAsIcon->get_width ();
-    h = savedAsIcon->get_height ();
+    w = savedAsIcon->getWidth();
+    h = savedAsIcon->getHeight();
 }
 
-
-Glib::ustring BatchQueueEntry::getToolTip (int x, int y) const
+Glib::ustring BatchQueueEntry::getToolTip(int x, int y) const
 {
     // get the parent class' tooltip first
     Glib::ustring tooltip = ThumbBrowserEntryBase::getToolTip(x, y);
 
     // add the saving param options
     if (!outFileName.empty()) {
-        tooltip += Glib::ustring::compose("\n\n%1: %2", M("BATCHQUEUE_DESTFILENAME"), outFileName);
+        tooltip += Glib::ustring::compose(
+            "\n\n%1: %2", M("BATCHQUEUE_DESTFILENAME"), outFileName);
 
         if (forceFormatOpts) {
-            tooltip += Glib::ustring::compose("\n\n%1: %2 (%3-bits%4)", M("SAVEDLG_FILEFORMAT"), saveFormat.format,
-                                              saveFormat.format == "png" ? saveFormat.pngBits :
-                                              saveFormat.format == "tif" ? saveFormat.tiffBits : 8,
-                                              saveFormat.format == "tif" && saveFormat.tiffFloat ? M("SAVEDLG_FILEFORMAT_FLOAT") : "");
+            tooltip += Glib::ustring::compose(
+                "\n\n%1: %2 (%3-bits%4)", M("SAVEDLG_FILEFORMAT"),
+                saveFormat.format,
+                saveFormat.format == "png"   ? saveFormat.pngBits
+                : saveFormat.format == "tif" ? saveFormat.tiffBits
+                                             : 8,
+                saveFormat.format == "tif" && saveFormat.tiffFloat
+                    ? M("SAVEDLG_FILEFORMAT_FLOAT")
+                    : "");
 
             if (saveFormat.format == "jpg") {
-                tooltip += Glib::ustring::compose("\n%1: %2\n%3: %4",
-                                                  M("SAVEDLG_JPEGQUAL"), saveFormat.jpegQuality,
-                                                  M("SAVEDLG_SUBSAMP"),
-                                                  saveFormat.jpegSubSamp == 1 ? M("SAVEDLG_SUBSAMP_1") :
-                                                  saveFormat.jpegSubSamp == 2 ? M("SAVEDLG_SUBSAMP_2") :
-                                                  M("SAVEDLG_SUBSAMP_3"));
+                tooltip += Glib::ustring::compose(
+                    "\n%1: %2\n%3: %4", M("SAVEDLG_JPEGQUAL"),
+                    saveFormat.jpegQuality, M("SAVEDLG_SUBSAMP"),
+                    saveFormat.jpegSubSamp == 1   ? M("SAVEDLG_SUBSAMP_1")
+                    : saveFormat.jpegSubSamp == 2 ? M("SAVEDLG_SUBSAMP_2")
+                                                  : M("SAVEDLG_SUBSAMP_3"));
             } else if (saveFormat.format == "tif") {
                 if (saveFormat.tiffUncompressed) {
-                    tooltip += Glib::ustring::compose("\n%1", M("SAVEDLG_TIFFUNCOMPRESSED"));
+                    tooltip += Glib::ustring::compose(
+                        "\n%1", M("SAVEDLG_TIFFUNCOMPRESSED"));
                 }
             }
         }
     }
 
     return tooltip;
-
 }
 
-struct BQUpdateParam {
-    BatchQueueEntryIdleHelper* bqih;
-    guint8* img;
-    int w, h;
-};
+// struct BQUpdateParam {
+//     BatchQueueEntryIdleHelper *bqih;
+//     guint8 *img;
+//     int w, h;
+// };
 
-int updateImageUIThread (void* data)
-{
+// int updateImageUIThread(void *data)
+// {
 
-    BQUpdateParam* params = static_cast<BQUpdateParam*>(data);
+//     BQUpdateParam *params = static_cast<BQUpdateParam *>(data);
 
-    BatchQueueEntryIdleHelper* bqih = params->bqih;
+//     BatchQueueEntryIdleHelper *bqih = params->bqih;
 
-    GThreadLock tLock; // Acquire the GUI
+//     GThreadLock tLock; // Acquire the GUI
 
-    // If the BQEntry was destroyed meanwhile, remove all the IdleHelper if all entries came through
-    if (bqih->destroyed) {
-        if (bqih->pending == 1) {
-            delete bqih;
-        } else {
-            bqih->pending--;
-        }
+//     // If the BQEntry was destroyed meanwhile, remove all the IdleHelper if all
+//     // entries came through
+//     if (bqih->destroyed) {
+//         if (bqih->pending == 1) {
+//             delete bqih;
+//         } else {
+//             bqih->pending--;
+//         }
 
-        delete [] params->img;
-        delete params;
+//         delete[] params->img;
+//         delete params;
 
-        return 0;
-    }
+//         return 0;
+//     }
 
-    bqih->bqentry->_updateImage (params->img, params->w, params->h);
-    bqih->pending--;
+//     bqih->bqentry->_updateImage(params->img, params->w, params->h);
+//     bqih->pending--;
 
-    delete params;
-    return 0;
-}
+//     delete params;
+//     return 0;
+// }
 
 // Starts a copy of img->preview via GTK thread
-void BatchQueueEntry::updateImage (guint8* img, int w, int h, int origw, int origh, guint8* newOPreview)
+void BatchQueueEntry::updateImage(guint8 *img, int w, int h, int origw,
+                                  int origh, guint8 *newOPreview)
 {
 
-    // since the update itself is already called in an async thread and there are problem with accessing opreview in thumbbrowserbase,
-    // it's safer to do this synchronously
+    // since the update itself is already called in an async thread and there
+    // are problem with accessing opreview in thumbbrowserbase, it's safer to do
+    // this synchronously
     {
         GThreadLock lock;
 
@@ -250,24 +258,34 @@ void BatchQueueEntry::updateImage (guint8* img, int w, int h, int origw, int ori
     }
 }
 
-void BatchQueueEntry::_updateImage (guint8* img, int w, int h)
+void BatchQueueEntry::_updateImage(guint8 *img, int w, int h)
 {
 
-    if (preh == h) {
+    if (getPreviewHeight() == h) {
         MYWRITERLOCK(l, lockRW);
 
-        prew = w;
-        preview.resize(prew * preh * 3);
-        std::copy(img, img + preview.size(), preview.begin());
+        int ts = parent->getThumbDisplayScale();
+        prew = w / ts;
+        if (w % ts == 0) {
+            preview.resize(w * h * 3);
+            std::copy(img, img + preview.size(), preview.begin());
+        } else {
+            int istride = w * 3;
+            int pstride = prew * ts * 3;
+            preview.resize(pstride * h);
+            for (int y = 0; y < h; ++y) {
+                std::copy(img + y * istride, img + y * istride + pstride,
+                          preview.begin() + y * pstride);
+            }
+        }
 
         if (parent) {
             parent->redrawEntryNeeded(this);
         }
     }
 
-    delete [] img;
+    delete[] img;
 }
-
 
 void BatchQueueEntry::customBackBufferUpdate(Cairo::RefPtr<Cairo::Context> c)
 {
@@ -278,7 +296,8 @@ void BatchQueueEntry::customBackBufferUpdate(Cairo::RefPtr<Cairo::Context> c)
             double cur_scale = double(preh) / double(h);
             auto cparams = params.crop;
             cparams.guide = "Frame";
-            drawCrop (c, prex, prey, prew, preh, 0, 0, cur_scale, cparams, true, false);
+            drawCrop(c, prex, prey, prew, preh, 0, 0, cur_scale, cparams, true,
+                     false);
         }
     }
 }

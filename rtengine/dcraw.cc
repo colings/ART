@@ -26,18 +26,18 @@
 /*RT*/#include <omp.h>
 /*RT*/#endif
 
+#include "opthelper.h"
 #include <utility>
 #include <vector>
-#include "opthelper.h"
 //#define BENCHMARK
 #include "StopWatch.h"
 #include "halffloat.h"
 
-using rtengine::DNG_HalfToFloat_i;
 using rtengine::DNG_FP24ToFloat;
+using rtengine::DNG_HalfToFloat_i;
 
-#include <zlib.h>
 #include <stdint.h>
+#include <zlib.h>
 
 
 /*
@@ -73,7 +73,6 @@ using rtengine::DNG_FP24ToFloat;
 #define _USE_MATH_DEFINES
 #include <cctype>
 #include <cerrno>
-#include <fcntl.h>
 #include <cfloat>
 #include <climits>
 #include <cmath>
@@ -82,6 +81,7 @@ using rtengine::DNG_FP24ToFloat;
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <fcntl.h>
 #include <strings.h>
 #include <sys/types.h>
 
@@ -106,9 +106,9 @@ using rtengine::DNG_FP24ToFloat;
 typedef __int64 INT64;
 typedef unsigned __int64 UINT64;
 #else
+#include <netinet/in.h>
 #include <unistd.h>
 #include <utime.h>
-#include <netinet/in.h>
 typedef long long INT64;
 typedef unsigned long long UINT64;
 #endif
@@ -3867,7 +3867,7 @@ void CLASS foveon_huff (ushort *huff)
 void CLASS foveon_dp_load_raw()
 {
   unsigned c, roff[4], row, col, diff;
-  ushort huff[512], vpred[2][2], hpred[2];
+  ushort huff[1024], vpred[2][2], hpred[2];
 
   fseek (ifp, 8, SEEK_CUR);
   foveon_huff (huff);
@@ -3891,12 +3891,16 @@ void CLASS foveon_dp_load_raw()
 void CLASS foveon_load_camf()
 {
   unsigned type, wide, high, i, j, row, col, diff;
-  ushort huff[258], vpred[2][2] = {{512,512},{512,512}}, hpred[2];
+  ushort huff[1024], vpred[2][2] = {{512,512},{512,512}}, hpred[2];
 
   fseek (ifp, meta_offset, SEEK_SET);
   type = get4();  get4();  get4();
   wide = get4();
   high = get4();
+  if(wide>32767 || high > 32767 || wide*high > 20000000) {
+      derror();
+      return;
+  }
   if (type == 2) {
     fread (meta_data, 1, meta_length, ifp);
     for (i=0; i < meta_length; i++) {

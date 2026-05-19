@@ -24,25 +24,20 @@
 
 #include "options.h"
 
-namespace
+namespace {
+
+std::map<std::string, Glib::RefPtr<Gdk::Pixbuf>> pixbufCache;
+std::map<std::pair<std::string, int>, Cairo::RefPtr<Cairo::ImageSurface>> surfaceCache;
+
+} // namespace
+
+RTImage::RTImage(): path_("") {}
+
+RTImage::RTImage(RTImage &other): path_("")
 {
-
-std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > pixbufCache;
-std::map<std::string, Cairo::RefPtr<Cairo::ImageSurface> > surfaceCache;
-
-}
-
-double RTImage::dpiBack = 0.;
-int RTImage::scaleBack = 0;
-
-RTImage::RTImage () {}
-
-RTImage::RTImage (RTImage &other)
-{
-    dpiBack = other.dpiBack;
-    scaleBack = other.scaleBack;
     pixbuf = other.pixbuf;
     surface = other.surface;
+    path_ = other.path_;
     if (pixbuf) {
         set(pixbuf);
     } else if (surface) {
@@ -50,12 +45,15 @@ RTImage::RTImage (RTImage &other)
     }
 }
 
-RTImage::RTImage (const Glib::ustring& fileName, const Glib::ustring& rtlFileName) : Gtk::Image()
+RTImage::RTImage(const Glib::ustring &fileName,
+                 const Glib::ustring &rtlFileName)
+    : Gtk::Image()
 {
-    setImage (fileName, rtlFileName);
+    setImage(fileName, rtlFileName);
+    property_scale_factor().signal_changed().connect(sigc::mem_fun(*this, &RTImage::updateScale));
 }
 
-RTImage::RTImage (Glib::RefPtr<Gdk::Pixbuf> &pbuf)
+RTImage::RTImage(Glib::RefPtr<Gdk::Pixbuf> &pbuf)
 {
     if (surface) {
         surface.clear();
@@ -64,9 +62,10 @@ RTImage::RTImage (Glib::RefPtr<Gdk::Pixbuf> &pbuf)
         set(pbuf);
         this->pixbuf = pbuf;
     }
+    path_ = "";
 }
 
-RTImage::RTImage (Cairo::RefPtr<Cairo::ImageSurface> &surf)
+RTImage::RTImage(Cairo::RefPtr<Cairo::ImageSurface> &surf)
 {
     if (pixbuf) {
         pixbuf.clear();
@@ -75,9 +74,10 @@ RTImage::RTImage (Cairo::RefPtr<Cairo::ImageSurface> &surf)
         set(surf);
         surface = surf;
     }
+    path_ = "";
 }
 
-RTImage::RTImage (Glib::RefPtr<RTImage> &other)
+RTImage::RTImage(Glib::RefPtr<RTImage> &other)
 {
     if (other) {
         if (other->get_surface()) {
@@ -87,10 +87,15 @@ RTImage::RTImage (Glib::RefPtr<RTImage> &other)
             pixbuf = other->get_pixbuf();
             set(pixbuf);
         }
+        path_ = other->path_;
+        property_scale_factor().signal_changed().connect(sigc::mem_fun(*this, &RTImage::updateScale));
+    } else {
+        path_ = "";
     }
 }
 
-void RTImage::setImage (const Glib::ustring& fileName, const Glib::ustring& rtlFileName)
+void RTImage::setImage(const Glib::ustring &fileName,
+                       const Glib::ustring &rtlFileName)
 {
     Glib::ustring imageName;
 
@@ -100,50 +105,38 @@ void RTImage::setImage (const Glib::ustring& fileName, const Glib::ustring& rtlF
         imageName = fileName;
     }
 
-    changeImage (imageName);
+    changeImage(imageName);
 }
 
-/*
- * On windows, if scale = 2, the dpi is non significant, i.e. should be considered = 192
- */
-void RTImage::setDPInScale (const double newDPI, const int newScale)
+void RTImage::changeImage(const Glib::ustring &imageName)
 {
-    if (scaleBack != newScale || (scaleBack == 1 && dpiBack != newDPI)) {
-        RTScalable::setDPInScale(newDPI, newScale);
-        dpiBack = getDPI();
-        scaleBack = getScale();
-        updateImages();
-    }
-}
+    clear();
 
-void RTImage::changeImage (const Glib::ustring& imageName)
-{
-    clear ();
+    path_ = imageName;
 
     if (imageName.empty()) {
         return;
     }
 
     if (pixbuf) {
-        auto iterator = pixbufCache.find (imageName);
-        assert(iterator != pixbufCache.end ());
+        auto iterator = pixbufCache.find(imageName);
+        assert(iterator != pixbufCache.end());
         pixbuf = iterator->second;
         set(iterator->second);
-    } else  {  // if no Pixbuf is set, we update or create a Cairo::ImageSurface
-        auto iterator = surfaceCache.find (imageName);
-        if (iterator == surfaceCache.end ()) {
-            auto surf = createImgSurfFromFile(imageName);
-            iterator = surfaceCache.emplace (imageName, surf).first;
+    } else { // if no Pixbuf is set, we update or create a Cairo::ImageSurface
+        int scale = RTScalable::getDisplayScale(this);
+        auto key = std::make_pair(imageName, scale);
+        auto iterator = surfaceCache.find(key);
+        if (iterator == surfaceCache.end()) {
+            auto surf = createImgSurfFromFile(imageName, scale);
+            iterator = surfaceCache.emplace(key, surf).first;
         }
         surface = iterator->second;
         set(iterator->second);
     }
 }
 
-Cairo::RefPtr<Cairo::ImageSurface> RTImage::get_surface()
-{
-    return surface;
-}
+Cairo::RefPtr<Cairo::ImageSurface> RTImage::get_surface() { return surface; }
 
 int RTImage::get_width()
 {
@@ -167,66 +160,44 @@ int RTImage::get_height()
     return -1;
 }
 
-void RTImage::init()
-{
-    dpiBack = RTScalable::getDPI();
-    scaleBack = RTScalable::getScale();
-}
 
-void RTImage::cleanup(bool all)
+Glib::RefPtr<Gdk::Pixbuf>
+RTImage::createPixbufFromFile(const Glib::ustring &fileName, int scale)
 {
-    for (auto& entry : pixbufCache) {
-        entry.second.reset();
-    }
-    for (auto& entry : surfaceCache) {
-        entry.second.clear();
-    }
-    RTScalable::cleanup(all);
-}
-
-void RTImage::updateImages()
-{
-    for (auto& entry : pixbufCache) {
-        entry.second = createPixbufFromFile(entry.first);
-    }
-    for (auto& entry : surfaceCache) {
-        entry.second = createImgSurfFromFile(entry.first);
-    }
-}
-
-Glib::RefPtr<Gdk::Pixbuf> RTImage::createPixbufFromFile (const Glib::ustring& fileName)
-{
-    Cairo::RefPtr<Cairo::ImageSurface> imgSurf = createImgSurfFromFile(fileName);
-    int s = RTScalable::getDeviceScale();
-    auto res = Gdk::Pixbuf::create(imgSurf, 0, 0, imgSurf->get_width(), imgSurf->get_height());
+    Cairo::RefPtr<Cairo::ImageSurface> imgSurf =
+        createImgSurfFromFile(fileName, scale);
+    int s = scale > 0 ? scale : RTScalable::getGlobalDisplayScale();
+    auto res = Gdk::Pixbuf::create(imgSurf, 0, 0, imgSurf->get_width(),
+                                   imgSurf->get_height());
     if (s > 1) {
-        res = res->scale_simple(imgSurf->get_width()/s, imgSurf->get_height()/s, Gdk::INTERP_TILES);
+        res = res->scale_simple(imgSurf->get_width() / s,
+                                imgSurf->get_height() / s, Gdk::INTERP_TILES);
     }
     return res;
 }
 
-Cairo::RefPtr<Cairo::ImageSurface> RTImage::createImgSurfFromFile (const Glib::ustring& fileName)
+Cairo::RefPtr<Cairo::ImageSurface>
+RTImage::createImgSurfFromFile(const Glib::ustring &fileName, int scale)
 {
     Cairo::RefPtr<Cairo::ImageSurface> surf;
 
     try {
-        surf = loadImage(fileName, getTweakedDPI());
-
-        // HOMBRE: As of now, GDK_SCALE is forced to 1, so setting the Cairo::ImageSurface scale is not required
-        /*
-        double x=0., y=0.;
-        cairo_surface_get_device_scale(surf->cobj(), &x, &y);
-        if (getScale() == 2) {
-            cairo_surface_set_device_scale(surf->cobj(), 0.5, 0.5);
-            cairo_surface_get_device_scale(surf->cobj(), &x, &y);
-            surf->flush();
-        }
-        */
-    } catch (const Glib::Exception& exception) {
+        surf = loadImage(fileName, scale);
+    } catch (const Glib::Exception &exception) {
         if (options.rtSettings.verbose) {
-            std::cerr << "Failed to load image \"" << fileName << "\": " << exception.what() << std::endl;
+            std::cerr << "Failed to load image \"" << fileName
+                      << "\": " << exception.what() << std::endl;
         }
     }
 
     return surf;
+}
+
+
+void RTImage::updateScale()
+{
+    if (!path_.empty()) {
+        changeImage(path_);
+        queue_draw();
+    }
 }

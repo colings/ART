@@ -19,12 +19,12 @@
  */
 #pragma once
 
-#include <string>
-#include <glibmm/ustring.h>
-#include <vector>
-#include <map>
-#include <array>
 #include "cJSON.h"
+#include <array>
+#include <glibmm/ustring.h>
+#include <map>
+#include <string>
+#include <vector>
 
 namespace rtengine {
 
@@ -44,7 +44,7 @@ struct CLUTParamDescriptor {
     double value_min;
     double value_max;
     std::vector<double> value_default;
-    std::vector<Glib::ustring> choices;
+    std::vector<std::pair<Glib::ustring, int>> choices;
     Glib::ustring gui_name;
     Glib::ustring gui_group;
     double gui_step;
@@ -55,20 +55,20 @@ struct CLUTParamDescriptor {
     bool fill_from_json(cJSON *root);
 };
 
-
 typedef std::map<std::string, std::vector<double>> CLUTParamValueMap;
 
 class CLUTParamDescriptorList: public std::vector<CLUTParamDescriptor> {
 public:
-    const std::vector<std::pair<std::string, Glib::ustring>> &get_presets() const;
+    const std::vector<std::pair<std::string, Glib::ustring>> &
+    get_presets() const;
     bool apply_preset(const std::string &key, CLUTParamValueMap &out);
-    bool add_preset(const std::string &key, const Glib::ustring &gui_name, const CLUTParamValueMap &value);
+    bool add_preset(const std::string &key, const Glib::ustring &gui_name,
+                    const CLUTParamValueMap &value);
     bool add_preset_from_json(cJSON *root);
 
 private:
     std::vector<std::pair<std::string, Glib::ustring>> presets_;
     std::map<std::string, CLUTParamValueMap> presets_map_;
 };
-
 
 } // namespace rtengine

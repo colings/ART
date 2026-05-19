@@ -20,9 +20,9 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [macos-13, macos-14]
+        os: [macos-15-intel, macos-14]
         include:
-          - os: macos-13
+          - os: macos-15-intel
             arch: x64
           - os: macos-14
             arch: arm64
@@ -69,22 +69,24 @@ jobs:
               echo "BUILD_SUFFIX=$BUILD_SUFFIX" >> $GITHUB_ENV
           fi
           
-      - if: ${{ matrix.os == 'macos-13' }}
-        name: Install MacPorts x64
+      - if: ${{ matrix.os == 'macos-15-intel' }}
+        name: Install MacPorts (x64)
         run: |          
-          wget https://github.com/macports/macports-base/releases/download/v2.10.5/MacPorts-2.10.5-13-Ventura.pkg
-          sudo installer -pkg MacPorts-2.10.5-13-Ventura.pkg -target /
+          wget https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-15-Sequoia.pkg
+          sudo installer -pkg MacPorts-2.11.6-15-Sequoia.pkg -target /
 
       - if: ${{ matrix.os == 'macos-14' }}
-        name: Install MacPorts arm64
+        name: Install MacPorts (arm64)
         run: |          
-          wget https://github.com/macports/macports-base/releases/download/v2.10.4/MacPorts-2.10.4-14-Sonoma.pkg
-          sudo installer -pkg MacPorts-2.10.4-14-Sonoma.pkg -target /
-          export PATH=/opt/local/libexec/gnubin:/opt/local/bin:/opt/local/sbin:$PATH
+          wget https://github.com/macports/macports-base/releases/download/v2.11.6/MacPorts-2.11.6-14-Sonoma.pkg
+          sudo installer -pkg MacPorts-2.11.6-14-Sonoma.pkg -target /
+          export
+          PATH=/opt/local/libexec/gnubin:/opt/local/bin:/opt/local/sbin:$PATH
           
       - name: Install base ports
         run: |          
           export PATH=/opt/local/libexec/gnubin:/opt/local/bin:/opt/local/sbin:$PATH
+          sudo port selfupdate
           sudo port install pkgconfig
           sudo port install automake
           sudo port install autoconf
@@ -92,7 +94,6 @@ jobs:
           sudo port install cmake
           sudo port install glib2 +quartz
           sudo port install gtkmm3 +quartz
-          sudo port install gtk-osx-application-gtk3
           sudo port install libomp
           sudo port install clang-17
           sudo port install librsvg-devel
@@ -104,6 +105,20 @@ jobs:
           sudo port install adwaita-icon-theme
           sudo port install meson
           sudo port install dbus
+          sudo port install simde
+
+      - name: Install gtk-osx-application-gtk3
+        run: |
+          export PATH=/opt/local/libexec/gnubin:/opt/local/bin:/opt/local/sbin:$PATH
+          INSTDIR=/opt/art-deps
+          wget https://distfiles.macports.org/gtk-osx-application/gtk-mac-integration-3.0.2.tar.xz
+          xzcat gtk-mac-integration-3.0.2.tar.xz | tar x
+          cd gtk-mac-integration-3.0.2
+          CC=/opt/local/bin/clang-mp-17 \
+            CXX=/opt/local/bin/clang++-mp-17 \
+            ./configure --prefix=$INSTDIR --with-gtk3
+          make -j$(nproc)
+          sudo make install
 
       - name: Install LibRaw
         run: |
@@ -193,6 +208,11 @@ jobs:
           export PATH=/opt/local/libexec/gnubin:/opt/local/bin:/opt/local/sbin:$PATH
           mkdir build
           cd build
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+              ART_SIMDE=1
+          else
+              ART_SIMDE=0
+          fi
           export PKG_CONFIG_PATH=/opt/art-deps/lib/pkgconfig
           /opt/local/bin/cmake \
             -DCMAKE_C_COMPILER=/opt/local/bin/clang-mp-17 \
@@ -204,6 +224,7 @@ jobs:
             -DCMAKE_LIBRARY_PATH=/opt/art-deps/lib \
             -DMACOS_LEGACY_BUNDLE=0 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=$OS_VERSION \
+            -DENABLE_SIMDE=${ART_SIMDE} \
             ../repo
           cd ..
 

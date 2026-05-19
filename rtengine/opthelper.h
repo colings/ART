@@ -1,6 +1,7 @@
 ////////////////////////////////////////////////////////////////
 //
-//  opthelper.h includes some #defines which help to make optimizations easier and better readable
+//  opthelper.h includes some #defines which help to make optimizations easier
+//  and better readable
 //
 //  copyright (c) 2013  Ingo Weyrich
 //
@@ -20,25 +21,29 @@
 ////////////////////////////////////////////////////////////////
 
 #ifndef OPTHELPER_H
-    #define OPTHELPER_H
+#define OPTHELPER_H
 
-    #define pow_F(a,b) (xexpf(b*xlogf(a)))
+#define pow_F(a, b) (xexpf(b * xlogf(a)))
 
-    #ifdef __SSE2__
-        #include "sleefsseavx.h"
-    #endif
+#ifdef ART_SIMD
+#  include "sleefsseavx.h"
+#endif
 
-    #ifdef __GNUC__
-        #define RESTRICT    __restrict__
-        #define LIKELY(x)   __builtin_expect (!!(x), 1)
-        #define UNLIKELY(x) __builtin_expect (!!(x), 0)
-        #define ALIGNED64 __attribute__ ((aligned (64)))
-        #define ALIGNED16 __attribute__ ((aligned (16)))
-    #else
-        #define RESTRICT
-        #define LIKELY(x)    (x)
-        #define UNLIKELY(x)  (x)
-        #define ALIGNED64
-        #define ALIGNED16
-    #endif
+#ifdef __GNUC__
+#define RESTRICT __restrict__
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#define ALIGNED64 __attribute__((aligned(64)))
+#define ALIGNED16 __attribute__((aligned(16)))
+#else
+#define RESTRICT
+#define LIKELY(x) (x)
+#define UNLIKELY(x) (x)
+#define ALIGNED64
+#define ALIGNED16
+#endif
+#endif
+
+#if defined(ART_USE_SIMDE) && !defined(ART_SIMDE_GET_MM_FLUSH_ZERO_MODE)
+#  define _MM_GET_FLUSH_ZERO_MODE SIMDE_MM_GET_FLUSH_ZERO_MODE
 #endif
