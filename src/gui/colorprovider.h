@@ -1,0 +1,78 @@
+/* -*- C++ -*-
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#pragma once
+
+#include <gtkmm.h>
+
+namespace art { namespace gui {
+
+
+class ColorProvider;
+
+/*
+ * The ColorCaller is the class that will query the ColorProvider
+ */
+class ColorCaller {
+protected:
+    // a class can handle several ColorCaller;
+    // colorCallerId will let the provider identify the caller
+    int colorCallerId;
+    ColorProvider *colorProvider;
+
+public:
+    enum ElemType {
+        CCET_POINT,
+        CCET_VERTICAL_BAR,
+        CCET_HORIZONTAL_BAR,
+        CCET_BACKGROUND
+    };
+    double ccRed;
+    double ccGreen;
+    double ccBlue;
+    double ccAlpha;
+
+    ColorCaller()
+        : colorCallerId(-1), colorProvider(nullptr), ccRed(0.), ccGreen(0.),
+          ccBlue(0.), ccAlpha(0.)
+    {
+    }
+    void setColorProvider(ColorProvider *p, int id)
+    {
+        colorProvider = p;
+        colorCallerId = id;
+    }
+};
+
+/*
+ * Use it to let your widget feed a colored bar or graph lines with the wanted
+ * colors If you doesn't need to dynamically feed a widget with colors (e.g.
+ * curve's graph), you don't need to declare the instanciator class as BEING a
+ * ColorProvider, you'll still be able to set gradients for e.g. ColoredBar(s)
+ */
+class ColorProvider {
+
+public:
+    virtual ~ColorProvider() {};
+    virtual void colorForValue(double valX, double valY,
+                               enum ColorCaller::ElemType elemType,
+                               int callerId, ColorCaller *caller) {};
+};
+
+
+} } // namespace art::gui

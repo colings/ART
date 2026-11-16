@@ -1,0 +1,108 @@
+/* -*- C++ -*-
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "coord.h"
+
+#include "rt_math.h"
+
+namespace art { namespace engine {
+
+Coord &Coord::operator=(const PolarCoord &other)
+{
+    const auto radius = other.radius;
+    const auto angle = other.angle / 180.0 * art::engine::RT_PI;
+
+    x = radius * std::cos(angle);
+    y = radius * std::sin(angle);
+
+    return *this;
+}
+
+CoordD &CoordD::operator=(const PolarCoord &other)
+{
+    const auto radius = other.radius;
+    const auto angle = other.angle / 180.0 * art::engine::RT_PI;
+
+    x = radius * std::cos(angle);
+    y = radius * std::sin(angle);
+
+    return *this;
+}
+
+PolarCoord &PolarCoord::operator=(const Coord &other)
+{
+    const double x = other.x;
+    const double y = other.y;
+
+    radius = art::engine::norm2(x, y);
+    angle = std::atan2(y, x) * 180.0 / art::engine::RT_PI;
+
+    return *this;
+}
+
+PolarCoord &PolarCoord::operator=(const CoordD &other)
+{
+    const double x = other.x;
+    const double y = other.y;
+
+    radius = art::engine::norm2(x, y);
+    angle = std::atan2(y, x) * 180.0 / art::engine::RT_PI;
+
+    return *this;
+}
+
+/// @brief Clip the coord to stay in the width x height bounds
+/// @return true if the x or y coordinate has changed
+bool Coord::clip(const int width, const int height)
+{
+    const auto newX = art::engine::LIM<int>(x, 0, width);
+    const auto newY = art::engine::LIM<int>(y, 0, height);
+
+    if (x != newX || y != newY) {
+
+        x = newX;
+        y = newY;
+
+        return true;
+    } else {
+        return false;
+    }
+}
+
+/// @brief Clip the coord to stay in the width x height bounds
+/// @return true if the x or y coordinate has changed
+bool CoordD::clip(const int width, const int height)
+{
+    const auto newX = art::engine::LIM<double>(x, 0., width);
+    const auto newY = art::engine::LIM<double>(y, 0., height);
+
+    if (x != newX || y != newY) {
+
+        x = newX;
+        y = newY;
+
+        return true;
+    } else {
+        return false;
+    }
+}
+
+double CoordD::getLength() { return art::engine::norm2<double>(x, y); }
+
+}} // namespace art::engine

@@ -1,0 +1,72 @@
+/* -*- C++ -*-
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include "rtengine.h"
+#include <iostream>
+// #include <giomm.h>
+#include <helpers.h>
+
+class PListener: public art::engine::ProgressListener {
+public:
+    void setProgressStr(const Glib::ustring &str)
+    {
+        std::cout << str << std::endl;
+    }
+    void setProgress(double p) { std::cout << p << std::endl; }
+    void setProgressState(bool inProcessing) {}
+    void error(const Glib::ustring &descr) {}
+};
+
+int main(int argc, char *argv[])
+{
+    if (argc < 4) {
+        std::cout << "Usage: rtcmd <infile> <paramfile> <outfile>" << std::endl;
+        exit(1);
+    }
+
+    art::engine::Settings s;
+    s.demosaicMethod = "hphd";
+    s.colorCorrectionSteps = 2;
+    s.iccDirectory = "";
+    s.colorimetricIntent = 1;
+    s.monitorProfile = "";
+
+    Glib::thread_init();
+    art::engine::init(s, "");
+    PListener pl;
+
+    art::engine::InitialImage *ii;
+    int errorCode;
+    ii = art::engine::InitialImage::load(argv[1], true, errorCode, &pl);
+
+    if (!ii) {
+        ii = art::engine::InitialImage::load(argv[1], false, errorCode, &pl);
+    }
+
+    if (!ii) {
+        std::cout << "Input file not supported." << std::endl;
+        exit(2);
+    }
+
+    art::engine::procparams::ProcParams params;
+    params.load(argv[2]);
+
+    art::engine::ProcessingJob *job = ProcessingJob::create(ii, params);
+    art::engine::IImage16 *res = art::engine::processImage(job, errorCode, &pl);
+    res->saveToFile(argv[3]);
+}

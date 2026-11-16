@@ -1,0 +1,81 @@
+/* -*- C++ -*-
+ *
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2018 the RawTherapee developers
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#pragma once
+
+#include "editorpanel.h"
+#include "filepanel.h"
+#include "rtwindow.h"
+#include <gtkmm.h>
+#include <set>
+
+namespace art { namespace gui {
+
+
+class EditWindow: public MessageWindow {
+
+private:
+    // double resolution;
+    RTWindow *parent;
+    // RTImage appIcon;
+
+    Gtk::Notebook *mainNB;
+    std::set<Glib::ustring> filesEdited;
+    std::map<Glib::ustring, EditorPanel *> epanels;
+
+    bool isFullscreen;
+    bool isClosed;
+    void toggleFullscreen();
+    void restoreWindow();
+    // bool updateResolution();
+    // void setAppIcon();
+
+public:
+    // Check if the system has more than one display and option is set
+    static bool isMultiDisplayEnabled();
+
+    // Should only be created once, auto-creates window on correct display
+    static EditWindow *getInstance(RTWindow *p, bool restore = true);
+
+    explicit EditWindow(RTWindow *p);
+
+    void writeOptions();
+    void addEditorPanel(EditorPanel *ep, const std::string &name);
+    void remEditorPanel(EditorPanel *ep);
+    bool selectEditorPanel(const std::string &name);
+    // write the current params of the editor of `name` (if any) to disk
+    void saveProfile(const Glib::ustring &name);
+    bool closeOpenEditors();
+    bool isProcessing();
+
+    void toFront();
+    bool keyPressed(GdkEventKey *event);
+    bool keyPressedBefore(GdkEventKey *event);
+    bool keyReleased(GdkEventKey *event);
+    bool scrollPressed(GdkEventScroll *event);
+    bool on_configure_event(GdkEventConfigure *event) override;
+    bool on_delete_event(GdkEventAny *event) override;
+    // bool on_window_state_event(GdkEventWindowState* event);
+    void on_mainNB_switch_page(Gtk::Widget *page, guint page_num);
+    void set_title_decorated(Glib::ustring fname);
+    void on_realize() override;
+};
+
+
+} } // namespace art::gui

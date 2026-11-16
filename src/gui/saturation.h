@@ -1,0 +1,63 @@
+/* -*- C++ -*-
+ *
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
+ *  Copyright (c) 2019-2026 Alberto Griggio <alberto.griggio@gmail.com>
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#pragma once
+
+#include "adjuster.h"
+#include "curveeditor.h"
+#include "curveeditorgroup.h"
+#include "guiutils.h"
+#include "mycurve.h"
+#include "toolpanel.h"
+#include <gtkmm.h>
+
+namespace art { namespace gui {
+
+
+class Saturation: public ToolParamBlock,
+                  public AdjusterListener,
+                  public FoldableToolPanel {
+private:
+    Adjuster *saturation;
+    Adjuster *vibrance;
+
+    art::engine::ProcEvent EvVibrance;
+
+    art::engine::procparams::SaturationParams initial_params;
+
+public:
+    Saturation();
+    ~Saturation() override;
+
+    void read(const art::engine::procparams::ProcParams *pp) override;
+    void write(art::engine::procparams::ProcParams *pp) override;
+    void
+    setDefaults(const art::engine::procparams::ProcParams *defParams) override;
+    void trimValues(art::engine::procparams::ProcParams *pp) override;
+
+    void adjusterChanged(Adjuster *a, double newval) override;
+    void adjusterAutoToggled(Adjuster *a, bool newval) override;
+
+    void toolReset(bool to_initial) override;
+    void registerShortcuts(ToolShortcutsManager *mgr) override;
+};
+
+
+} } // namespace art::gui

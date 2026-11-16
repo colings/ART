@@ -1,0 +1,59 @@
+/* -*- C++ -*-
+ *
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *l
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#pragma once
+
+#include <gtkmm.h>
+
+namespace art { namespace gui {
+
+
+class ImageArea;
+class ZoomPanel: public Gtk::Grid {
+
+protected:
+    Gtk::ToggleButton *hidpi;
+    Gtk::Button *zoomOut;
+    Gtk::Button *zoomIn;
+    Gtk::Button *zoomFit;
+    // Gtk::Button*    zoomFitCrop;
+    Gtk::Button *zoom11;
+    Gtk::Button *newCrop;
+    Gtk::Label *zoomLabel;
+    ImageArea *iarea;
+
+    void onScaleChange();
+
+public:
+    explicit ZoomPanel(ImageArea *iarea);
+
+    void zoomInClicked();
+    void zoomOutClicked();
+    void zoomFitClicked();
+    // void zoomFitCropClicked ();
+    void zoom11Clicked();
+    void newCropClicked();
+    void refreshZoomLabel();
+    void hidpiToggled();
+
+    void on_realize() override;
+};
+
+
+} } // namespace art::gui

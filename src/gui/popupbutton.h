@@ -1,0 +1,46 @@
+/* -*- C++ -*-
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ *  Class created by Jean-Christophe FRISCH, aka 'Hombre'
+ */
+#pragma once
+
+#include "popupcommon.h"
+#include <gtkmm/button.h>
+
+namespace art { namespace gui {
+
+
+class PopUpButton: public Gtk::Button, public PopUpCommon {
+
+public:
+    PopUpButton(const Glib::ustring &label = Glib::ustring(),
+                bool nextOnClicked = false);
+    void show();
+    void set_tooltip_text(const Glib::ustring &text);
+    void set_sensitive(bool isSensitive = true);
+
+protected:
+    bool on_button_release_event(GdkEventButton *event) override;
+
+private:
+    bool nextOnClicked;
+};
+
+
+} } // namespace art::gui

@@ -62,7 +62,7 @@ set(CACHE_NAME_SUFFIX "" CACHE STRING "ART's cache folder suffix")
 # Specify other values to optimize for specific processor architecture as listed in ProcessorTargets.cmake:
 set(PROC_TARGET_NUMBER 0 CACHE STRING "Selected target processor from the list above (taken from ProcessorTargets.cmake)")
 
-# Set special compilation flags for rtengine which get added to CMAKE_CXX_FLAGS:
+# Set special compilation flags for the engine (src/engine) which get added to CMAKE_CXX_FLAGS:
 # Some Linux distros build with -O2 instead of -O3. We explicitly enable auto vectorization by using -ftree-vectorize
 set(RTENGINE_CXX_FLAGS "-ftree-vectorize" CACHE STRING "Special compilation flags for RTEngine")
 
@@ -153,26 +153,9 @@ option(ENABLE_LIBRAW "Use libraw for decoding" ON)
 option(ENABLE_OCIO "Use OpenColorIOv2 for LUT application" ON)
 option(ENABLE_CTL "Enable support for the ACES Color Transformation Language" OFF)
 option(ENABLE_SIMDE "Build with SIMD Everywhere support" OFF)
-
-option(MACOS_LEGACY_BUNDLE "Use legacy method for building a macOS bundle using the tools/osx/macos_bundle.sh script" OFF)
-
-option(OSX_DEV_BUILD "DEPRECATED - Generate macOS development builds" OFF)
-
-option(OSX_NIGHTLY "DEPRECATED - Generate a generically-named zip (only when MACOS_LEGACY_BUNDLE is OFF)" OFF)
-
-option(OSX_UNIVERSAL "DEPRECATED - Generate a universal app (only when MACOS_LEGACY_BUNDLE is OFF)" OFF)
-
-if(MACOS_LEGACY_BUNDLE)
-    set(OSX_DEV_BUILD 1 FORCE)
-else()
-    set(OSX_DEV_BUILD 0 FORCE)
-endif()
-
-if(APPLE AND OSX_DEV_BUILD)
-    set(APPLE_NEW_BUNDLE 1)
-else()
-    set(APPLE_NEW_BUNDLE 0)
-endif()
+option(ENABLE_LCMS_FAST_FLOAT "Enable the fast-float plugin of LCMS2 (if available)" ON)
+option(ENABLE_VULKAN "Enable the Vulkan compute backend for GPU acceleration" OFF)
+option(ART_VULKAN_EMBED_SHADERS "Embed compiled SPIR-V modules in the binary instead of installing them as data files" ON)
 
 # Set installation directories:
 if(WIN32 OR APPLE)
@@ -187,19 +170,15 @@ endif()
 
 if(NOT DEFINED BUNDLE_BASE_INSTALL_DIR)
     set(BUNDLE_BASE_INSTALL_DIR "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
-    if(APPLE_NEW_BUNDLE)
+    if(APPLE)
         set(BUNDLE_BASE_INSTALL_DIR "${BUNDLE_BASE_INSTALL_DIR}/ART.app")
-    elseif(APPLE)
-        set(BUNDLE_BASE_INSTALL_DIR "${PROJECT_SOURCE_DIR}/build")
     endif()
 endif()
 
 if(BUILD_BUNDLE)
     set(CMAKE_INSTALL_PREFIX "${BUNDLE_BASE_INSTALL_DIR}")
-    if(APPLE_NEW_BUNDLE)
+    if(APPLE)
         set(BINDIR "Contents/MacOS")
-    elseif(APPLE)
-        set(BINDIR "${PROJECT_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE}/MacOS")
     else()
         set(BINDIR .)
     endif()
@@ -211,10 +190,8 @@ endif()
 
 if(NOT DEFINED DATADIR)
     if(BUILD_BUNDLE)
-        if(APPLE_NEW_BUNDLE)
+        if(APPLE)
             set(DATADIR "Contents/Resources")
-        elseif(APPLE)
-            set(DATADIR "/Applications/ART.app/Contents/Resources/share")
         else()
             set(DATADIR .)
         endif()
@@ -225,10 +202,8 @@ endif()
 
 if(NOT DEFINED LIBDIR)
     if(BUILD_BUNDLE)
-        if(APPLE_NEW_BUNDLE)
+        if(APPLE)
             set(LIBDIR "Contents/Frameworks")
-        elseif(APPLE)
-            set(LIBDIR "${PROJECT_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE}/Frameworks")
         else()
             set(LIBDIR .)
         endif()
@@ -248,10 +223,8 @@ endif()
 
 if(NOT DEFINED DOCDIR)
     if(BUILD_BUNDLE)
-        if(APPLE_NEW_BUNDLE)
+        if(APPLE)
             set(DOCDIR "${DATADIR}/doc")
-        elseif(APPLE)
-            set(DOCDIR "/Applications/ART.app/Contents/Resources")
         else()
             set(DOCDIR "${DATADIR}/share/doc")
         endif()
@@ -262,11 +235,7 @@ endif()
 
 if(NOT DEFINED CREDITSDIR)
     if(BUILD_BUNDLE)
-        if(APPLE AND NOT APPLE_NEW_BUNDLE)
-            set(CREDITSDIR "/Applications/ART.app/Contents/Resources")
-        else()
-            set(CREDITSDIR "${DATADIR}")
-        endif()
+        set(CREDITSDIR "${DATADIR}")
     else()
         set(CREDITSDIR "${CMAKE_INSTALL_PREFIX}/share/doc/ART")
     endif()
@@ -322,23 +291,11 @@ if(NOT DEFINED APPDATADIR)
     endif()
 endif()
 
-if(APPLE AND NOT APPLE_NEW_BUNDLE)
-    set(LENSFUNDBDIR "${LENSFUNDBDIR}")
-elseif(DEFINED LENSFUNDBDIR AND NOT IS_ABSOLUTE "${LENSFUNDBDIR}")
+if(DEFINED LENSFUNDBDIR AND NOT IS_ABSOLUTE "${LENSFUNDBDIR}")
     set(LENSFUNDBDIR "${DATADIR}/${LENSFUNDBDIR}")
 endif()
 
 if(APPLE)
-    if("${CODESIGNID}")
-        set(CODESIGNID
-            "${CODESIGNID}"
-            CACHE STRING "Codesigning Identity")
-    endif()
-    if("${NOTARY}")
-        set(NOTARY
-            "${NOTARY}"
-            CACHE STRING "Notarization Identity")
-    endif()
     if("${LOCAL_PREFIX}")
         set(LOCAL_PREFIX
             "${LOCAL_PREFIX}"
@@ -347,23 +304,6 @@ if(APPLE)
         set(LOCAL_PREFIX
             /usr/local
             CACHE STRING "macos/gtk parent directory ie /usr/local (default) or /opt/local (macports) or /opt/homebrew (for arm64)")
-    endif()
-    if("${FANCY_DMG}")
-        set(FANCY_DMG
-            ON
-            CACHE BOOL
-                  "Use the andreyvit/create-dmg script to make a fancy .dmg")
-    endif()
-endif()
-
-# On macOS: merge the app via a specific url to generate a universal bundle with both x86_64 and arm64
-if(OSX_UNIVERSAL)
-    if(NOT OSX_UNIVERSAL_URL)
-        if(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
-            set(OSX_UNIVERSAL_URL "ART_macOS_x86_64_latest.zip" CACHE STRING "URL of x86_64 app for lipo")
-        else()
-            set(OSX_UNIVERSAL_URL "ART_macOS_arm64_latest.zip" CACHE STRING "URL of arm64 app for lipo")
-        endif()
     endif()
 endif()
 
@@ -618,8 +558,9 @@ foreach(l ${LCMS_LIBRARIES})
     find_library(_f ${l} PATHS ${LCMS_LIBRARY_DIRS} NO_DEFAULT_PATH)
     set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${_f})
 endforeach()
-check_c_source_compiles(
-"#include <lcms2.h>
+if(ENABLE_LCMS_FAST_FLOAT)
+    check_c_source_compiles(
+        "#include <lcms2.h>
 #include <lcms2_fast_float.h>
 #if LCMS2_FAST_FLOAT_VERSION < 1500
 #  error \"fast float too old\"
@@ -630,10 +571,11 @@ int main()
     cmsPlugin(cmsFastFloatExtensions());
     return 0;
 }" _lcms2_fast_float)
-if(_lcms2_fast_float)
-    add_definitions(-DART_LCMS2_FAST_FLOAT)
-    message(STATUS "using LCMS2 fast float plugin")
-    set(ART_LCMS_VERSION_INFO "${ART_LCMS_VERSION_INFO}-fastfloat")
+    if(_lcms2_fast_float)
+        add_definitions(-DART_LCMS2_FAST_FLOAT)
+        message(STATUS "using LCMS2 fast float plugin")
+        set(ART_LCMS_VERSION_INFO "${ART_LCMS_VERSION_INFO}-fastfloat")
+    endif()
 endif()
 
 set(ART_MIMALLOC_VERSION_INFO "N/A")
@@ -661,6 +603,31 @@ if(ENABLE_LIBRAW)
     if(LIBRAW_FOUND)
         message(STATUS "using libraw library ${LIBRAW_VERSION}")
         add_definitions(-DART_USE_LIBRAW)
+        # Find out whether the LibRaw library was built with OpenMP (see
+        # LibrawLock in rawimage.cc). The CMake build of LibRaw records it in
+        # libraw_config.h; the autotools one doesn't install that header, but
+        # adds the OpenMP flags to the Libs of libraw_r.pc.
+        if(NOT DEFINED LIBRAW_HAS_OPENMP)
+            find_file(LIBRAW_CONFIG_H libraw_config.h
+                PATHS ${LIBRAW_INCLUDE_DIRS} NO_DEFAULT_PATH)
+            if(LIBRAW_CONFIG_H)
+                file(STRINGS "${LIBRAW_CONFIG_H}" _libraw_omp
+                    REGEX "^[ \t]*#[ \t]*define[ \t]+LIBRAW_USE_OPENMP")
+            else()
+                string(REGEX MATCH "openmp" _libraw_omp "${LIBRAW_LDFLAGS_OTHER}")
+            endif()
+            if(_libraw_omp)
+                set(_libraw_omp ON)
+            else()
+                set(_libraw_omp OFF)
+            endif()
+            set(LIBRAW_HAS_OPENMP ${_libraw_omp} CACHE BOOL
+                "Whether the LibRaw library was built with OpenMP")
+        endif()
+        message(STATUS "libraw built with OpenMP: ${LIBRAW_HAS_OPENMP}")
+        if(LIBRAW_HAS_OPENMP)
+            add_definitions(-DART_LIBRAW_LIB_HAS_OPENMP)
+        endif()
     else()
         message(STATUS "libraw not found")
     endif()
@@ -715,6 +682,48 @@ else()
     set(ART_CTL_VERSION_INFO "N/A")
 endif()
 
+# Vulkan compute backend.  Headers only: the loader is opened at runtime with
+# dlopen/LoadLibrary through the vendored volk meta-loader, so a missing Vulkan
+# loader, a missing ICD or a missing device is a clean no-op rather than a
+# startup failure -- and so that the platform bundlers never pick up a loader
+# and shadow the host's one.
+set(VULKAN_FOUND 0)
+set(ART_VULKAN_VERSION_INFO "N/A")
+if(ENABLE_VULKAN)
+    find_path(VULKAN_INCLUDE_DIR
+        NAMES "vulkan/vulkan_core.h"
+        HINTS "$ENV{VULKAN_SDK}/include" "$ENV{VULKAN_SDK}/Include")
+    # NOTE: Vulkan_GLSLC_EXECUTABLE requires CMake 3.19 and
+    # find_package(Vulkan COMPONENTS glslc) requires 3.24; ART requires 3.9,
+    # so probe for the compiler directly.  Homebrew's shaderc ships glslc but
+    # not glslangValidator, hence the order.
+    find_program(ART_GLSL_COMPILER NAMES glslc glslangValidator
+        HINTS "$ENV{VULKAN_SDK}/bin" "$ENV{VULKAN_SDK}/Bin")
+    if(NOT VULKAN_INCLUDE_DIR)
+        message(STATUS "Vulkan headers not found, GPU backend disabled")
+    elseif(NOT ART_GLSL_COMPILER)
+        message(STATUS "no GLSL compiler (glslc or glslangValidator) found, GPU backend disabled")
+    else()
+        file(STRINGS "${VULKAN_INCLUDE_DIR}/vulkan/vulkan_core.h"
+            _vk_hdr_line REGEX "^#define VK_HEADER_VERSION[ \t]+[0-9]+")
+        string(REGEX REPLACE "^#define VK_HEADER_VERSION[ \t]+([0-9]+).*" "\\1"
+            VULKAN_HEADER_VERSION "${_vk_hdr_line}")
+        if("${VULKAN_HEADER_VERSION}" STREQUAL "")
+            message(STATUS "could not parse VK_HEADER_VERSION from ${VULKAN_INCLUDE_DIR}, GPU backend disabled")
+        elseif("${VULKAN_HEADER_VERSION}" LESS 200)
+            message(STATUS "Vulkan headers at ${VULKAN_INCLUDE_DIR} are too old (VK_HEADER_VERSION ${VULKAN_HEADER_VERSION} < 200), GPU backend disabled")
+        else()
+            set(VULKAN_FOUND 1)
+            set(VULKAN_INCLUDE_DIRS "${VULKAN_INCLUDE_DIR}")
+            add_definitions(-DART_USE_VULKAN)
+            get_filename_component(_glsl_name "${ART_GLSL_COMPILER}" NAME)
+            set(ART_VULKAN_VERSION_INFO
+                "headers 1.x.${VULKAN_HEADER_VERSION}, shaders via ${_glsl_name}")
+            message(STATUS "Vulkan compute backend enabled (${ART_VULKAN_VERSION_INFO})")
+        endif()
+    endif()
+endif()
+
 
 # Find out whether we are building out of source:
 get_filename_component(ABS_SOURCE_DIR "${PROJECT_SOURCE_DIR}" ABSOLUTE)
@@ -727,7 +736,7 @@ endif()
 
 # Remove files which could require manual work.
 # We will remove this after some time to have a clean build system without file modifications in the source tree again. (?)
-set(OOSB_FILES "${PROJECT_SOURCE_DIR}/rtdata/ART.desktop" "${PROJECT_SOURCE_DIR}/rtgui/version.h" "${PROJECT_SOURCE_DIR}/rtgui/config.h" "${PROJECT_SOURCE_DIR}/AboutThisBuild.txt")
+set(OOSB_FILES "${PROJECT_SOURCE_DIR}/data/ART.desktop" "${PROJECT_SOURCE_DIR}/src/utils/version.h" "${PROJECT_SOURCE_DIR}/src/utils/config.h" "${PROJECT_SOURCE_DIR}/AboutThisBuild.txt")
 if(OUT_OF_SOURCE_BUILD)
     foreach(f ${OOSB_FILES})
         file(REMOVE "${f}")
@@ -763,7 +772,7 @@ else()
 endif()
 
 
-# Get C++ and linker flags for rtengine (the GUI's C++ flags may have fewer flags):
+# Get C++ and linker flags for the engine (the GUI's C++ flags may have fewer flags):
 set(CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPER_CMAKE_BUILD_TYPE}} ${RTENGINE_CXX_FLAGS}")
 set(LFLAGS "${CMAKE_EXE_LINKER_FLAGS} ${CMAKE_EXE_LINKER_FLAGS_${UPPER_CMAKE_BUILD_TYPE}}")
 
@@ -819,6 +828,9 @@ else()
     list(APPEND ABOUT_COMMAND_WITH_ARGS
         -DART_CTL_VERSION_INFO:STRING="N/A")
 endif()
+
+list(APPEND ABOUT_COMMAND_WITH_ARGS
+    -DART_VULKAN_VERSION_INFO:STRING="${ART_VULKAN_VERSION_INFO}")
 
 list(APPEND ABOUT_COMMAND_WITH_ARGS "-DBUILDINFO_OS:STRING=${CMAKE_HOST_SYSTEM_NAME}" -P "${PROJECT_SOURCE_DIR}/UpdateInfo.cmake")
 
@@ -898,6 +910,8 @@ int main() { return 0; }
     endif()
 endif()
 
-add_subdirectory(rtengine)
-add_subdirectory(rtgui)
-add_subdirectory(rtdata)
+enable_testing()
+add_subdirectory(src/utils)
+add_subdirectory(src/engine)
+add_subdirectory(src/gui)
+add_subdirectory(data)

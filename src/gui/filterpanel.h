@@ -1,0 +1,85 @@
+/* -*- C++ -*-
+ *
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#pragma once
+
+#include "dateentry.h"
+#include "exiffiltersettings.h"
+#include <gtkmm.h>
+
+namespace art { namespace gui {
+
+
+class FilterPanelListener {
+public:
+    virtual ~FilterPanelListener() = default;
+    virtual void exifFilterChanged() = 0;
+};
+
+class FilterPanel: public Gtk::VBox {
+protected:
+    Gtk::ListViewText *filetype;
+    Gtk::ListViewText *camera;
+    Gtk::ListViewText *lens;
+    Gtk::ListViewText *orientation;
+    Gtk::ListViewText *expcomp;
+    Gtk::Entry *fnumberFrom;
+    Gtk::Entry *fnumberTo;
+    Gtk::Entry *shutterFrom;
+    Gtk::Entry *shutterTo;
+    Gtk::Entry *focalFrom;
+    Gtk::Entry *focalTo;
+    Gtk::Entry *isoFrom;
+    Gtk::Entry *isoTo;
+    DateEntry *dateFrom;
+    DateEntry *dateTo;
+    Gtk::CheckButton *enabled;
+    Gtk::CheckButton *enaFNumber;
+    Gtk::CheckButton *enaShutter;
+    Gtk::CheckButton *enaFocalLen;
+    Gtk::CheckButton *enaISO;
+    Gtk::CheckButton *enaExpComp;
+    Gtk::CheckButton *enaCamera;
+    Gtk::CheckButton *enaLens;
+    Gtk::CheckButton *enaOrientation;
+    Gtk::CheckButton *enaFiletype;
+    Gtk::CheckButton *enaDate;
+
+    std::vector<sigc::connection> sChange;
+
+    ExifFilterSettings curefs;
+    FilterPanelListener *listener;
+
+    std::vector<Glib::ustring> orientation_values_;
+
+public:
+    FilterPanel();
+
+    void setFilterPanelListener(FilterPanelListener *l) { listener = l; }
+
+    void setFilter(ExifFilterSettings &defefs, bool update);
+    ExifFilterSettings getFilter(bool full_data = true);
+    bool isEnabled();
+
+    void valueChanged();
+    void setEnabled(bool enabledState) { enabled->set_active(enabledState); }
+};
+
+
+} } // namespace art::gui

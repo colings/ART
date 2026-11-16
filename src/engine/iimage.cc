@@ -1,0 +1,46 @@
+/* -*- C++ -*-
+ *  This file is part of ART.
+ *
+ *  Copyright (c) 2004-2010 Gabor Horvath <hgabor@rawtherapee.com>
+ *
+ *  ART is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  ART is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with ART.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "rtengine.h"
+
+const char art::engine::sImage8[] = "Image8";
+const char art::engine::sImage16[] = "Image16";
+const char art::engine::sImagefloat[] = "Imagefloat";
+int art::engine::getCoarseBitMask(const procparams::CoarseTransformParams &coarse)
+{
+    int tr = TR_NONE;
+
+    if (coarse.rotate == 90) {
+        tr |= TR_R90;
+    } else if (coarse.rotate == 180) {
+        tr |= TR_R180;
+    } else if (coarse.rotate == 270) {
+        tr |= TR_R270;
+    }
+
+    if (coarse.hflip) {
+        tr |= TR_HFLIP;
+    }
+
+    if (coarse.vflip) {
+        tr |= TR_VFLIP;
+    }
+
+    return tr;
+}

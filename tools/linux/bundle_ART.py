@@ -72,6 +72,15 @@ def getdlls(opts):
 	'libsystemd.so.0',
         'librt.so.1',
         'libstdc++.so.6',
+        # The host's Vulkan loader and Mesa WSI are built against the host's
+        # libwayland; a bundled (older) copy found first through the
+        # launcher's LD_LIBRARY_PATH makes dlopen("libvulkan.so.1") fail on
+        # an unresolved wl_* symbol, and the GPU is reported as unavailable
+        # (issue #553). They are also the client side of the compositor
+        # protocol, so there is no reason to pin them.
+        'libwayland-client.so.0',
+        'libwayland-cursor.so.0',
+        'libwayland-egl.so.1',
         }
     res = []
     d = os.getcwd()
@@ -97,7 +106,9 @@ def extra_files(opts):
         with urlopen('https://exiftool.org/ver.txt') as f:
             ver = f.read().strip().decode('utf-8')
         name = 'Image-ExifTool-%s.tar.gz' % ver
-        with urlopen('https://exiftool.org/' + name) as f:
+        url = f'https://sourceforge.net/projects/' + \
+            f'exiftool/files/{name}/download'
+        with urlopen(url) as f:
             if opts.verbose:
                 print('downloading %s from https://exiftool.org ...' % name)
             tf = tarfile.open(fileobj=io.BytesIO(f.read()))
@@ -142,7 +153,8 @@ def extra_files(opts):
     return [
         ('share/icons/Adwaita', [
             D('/usr/share/icons/Adwaita/scalable'),
-            D('/usr/share/icons/Adwaita/index.theme'), 
+            D('/usr/share/icons/Adwaita/symbolic'),
+            D('/usr/share/icons/Adwaita/index.theme'),
             D('/usr/share/icons/Adwaita/cursors'),
         ]),
         ('lib', [
@@ -171,6 +183,11 @@ def extra_files(opts):
             D('/usr/lib/' + machine + '-linux-gnu/gvfs/libgvfsdaemon.so'),
         ]),
     ] + extra
+    # NOTE: nothing is bundled for the GPU backend on Linux. The host loader
+    # must always win -- a libvulkan.so.1 copied into lib/ would be found
+    # through the LD_LIBRARY_PATH the launcher script sets and would shadow
+    # it -- and the vendor/mesa ICD comes from the host's own graphics stack.
+    # See the candidates() comment in src/engine/gpu/vk_api.cc.
 
 
 def main():
@@ -225,7 +242,7 @@ def main():
 libgioremote-volume-monitor.so: gio-native-volume-monitor,gio-volume-monitor
 libgvfsdbus.so: gio-vfs,gio-volume-monitor
 """)        
-    for name in ('ART', 'ART-cli'):
+    for name in ('ART', 'ART-cli', 'ART-dialogs'):
         shutil.move(os.path.join(opts.outdir, name),
                     os.path.join(opts.outdir, '.' + name + '.bin'))
     with open(os.path.join(opts.outdir, 'fonts.conf'), 'w') as out:
@@ -372,7 +389,38 @@ export LD_LIBRARY_PATH="$d/lib"
 export ART_EXIFTOOL_BASE_DIR="$d/lib/exiftool"
 exec "$d/.ART-cli.bin" "$@"
 """)
-    for name in ('ART', 'ART-cli'):
+
+    # user commands get the environment restored to what it was before the ART
+    # wrapper changed it (see engine/subprocess.cc:get_env), so ART-dialogs
+    # has to set up the GTK environment on its own
+    with open(os.path.join(opts.outdir, 'ART-dialogs'), 'w') as out:
+        out.write("""#!/bin/bash
+export ART_restore_GTK_CSD=$GTK_CSD
+export ART_restore_GDK_PIXBUF_MODULE_FILE=$GDK_PIXBUF_MODULE_FILE
+export ART_restore_GDK_PIXBUF_MODULEDIR=$GDK_PIXBUF_MODULEDIR
+export ART_restore_GIO_MODULE_DIR=$GIO_MODULE_DIR
+export ART_restore_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+export ART_restore_FONTCONFIG_FILE=$FONTCONFIG_FILE
+export ART_restore_GDK_BACKEND=$GDK_BACKEND
+export ART_restore_GTK_IM_MODULE_FILE=$GTK_IM_MODULE_FILE
+export GTK_CSD=0
+d=$(dirname $(readlink -f "$0"))
+t=$(mktemp -d --suffix=-ART-dialogs)
+trap 'rm -rf "$t"' EXIT
+export LD_LIBRARY_PATH="$d/lib"
+"$d/lib/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders" "$d/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader-png.so" "$d/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader-svg.so" > "$t/loader.cache"
+"$d/lib/gtk-query-immodules-3.0" "$d"/lib/immodules/im-*.so > "$t/gtk.immodules"
+export GDK_PIXBUF_MODULE_FILE="$t/loader.cache"
+export GDK_PIXBUF_MODULEDIR="$d/lib/gdk-pixbuf-2.0"
+export GTK_IM_MODULE_FILE="$t/gtk.immodules"
+export GIO_MODULE_DIR="$d/lib/gio/modules"
+export FONTCONFIG_FILE="$d/fonts.conf"
+GDK_BACKEND="${GDK_BACKEND:-wayland,x11}"
+export GDK_BACKEND
+# not exec: the trap above has to remove $t, and the exit status is passed on
+"$d/.ART-dialogs.bin" "$@"
+""")
+    for name in ('ART', 'ART-cli', 'ART-dialogs'):
         os.chmod(os.path.join(opts.outdir, name), 0o755)
 
 if __name__ == '__main__':
